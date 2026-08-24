@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local tooling config (dev server preview, etc.)
+/.claude
+
 # uploads
 /uploads/*
 !/uploads/.gitkeep
