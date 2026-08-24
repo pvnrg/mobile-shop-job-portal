@@ -1,7 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { invoices, invoiceItems, payments, businessSettings } from "@/db/schema";
+import { invoices, invoiceItems, payments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,13 +81,27 @@ export default async function InvoiceDetailPage({
       <Card className="print:border-none print:shadow-none">
         <CardContent className="space-y-6 pt-6">
           <div className="flex flex-col justify-between gap-4 sm:flex-row">
-            <div>
-              <h2 className="text-lg font-semibold">{settings?.businessName ?? "Mobile Repair Shop"}</h2>
-              {settings?.address && (
-                <p className="whitespace-pre-wrap text-sm text-muted-foreground">{settings.address}</p>
+            <div className="flex items-start gap-3">
+              {settings?.logoPath && (
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-background">
+                  <Image
+                    src={settings.logoPath}
+                    alt=""
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-contain"
+                    unoptimized
+                  />
+                </div>
               )}
-              {settings?.gstin && <p className="text-sm">GSTIN: {settings.gstin}</p>}
-              {settings?.phone && <p className="text-sm text-muted-foreground">{settings.phone}</p>}
+              <div>
+                <h2 className="text-lg font-semibold">{settings?.businessName ?? "Mobile Repair Shop"}</h2>
+                {settings?.address && (
+                  <p className="whitespace-pre-wrap text-sm text-muted-foreground">{settings.address}</p>
+                )}
+                {settings?.gstin && <p className="text-sm">GSTIN: {settings.gstin}</p>}
+                {settings?.phone && <p className="text-sm text-muted-foreground">{settings.phone}</p>}
+              </div>
             </div>
             <div className="sm:text-right">
               <div className="text-sm text-muted-foreground">Invoice #</div>

@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BusinessSettingsForm } from "@/components/settings/business-settings-form";
 import { StaffManager } from "@/components/settings/staff-manager";
+import { LogoUploadForm } from "@/components/settings/logo-upload-form";
+import { ThemeSettingsForm } from "@/components/settings/theme-settings-form";
 import { WhatsappConnectionForm } from "@/components/settings/whatsapp-connection-form";
 import { WhatsappTemplatesList } from "@/components/settings/whatsapp-templates-list";
 import { WhatsappTestMessage } from "@/components/settings/whatsapp-test-message";
@@ -46,12 +48,35 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="business">
+      <Tabs defaultValue="application">
         <TabsList>
+          <TabsTrigger value="application">Application</TabsTrigger>
           <TabsTrigger value="business">Business & GST</TabsTrigger>
           <TabsTrigger value="staff">Staff</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
         </TabsList>
+        <TabsContent value="application" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Logo</CardTitle>
+              <CardDescription>
+                Shown in the sidebar, login page, and on generated invoices
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LogoUploadForm logoPath={settings?.logoPath} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Theme</CardTitle>
+              <CardDescription>Choose how the portal looks on this device</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ThemeSettingsForm />
+            </CardContent>
+          </Card>
+        </TabsContent>
         <TabsContent value="business">
           <Card>
             <CardHeader>

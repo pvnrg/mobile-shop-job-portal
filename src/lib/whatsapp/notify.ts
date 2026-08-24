@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { whatsappSettings, whatsappTemplates, whatsappMessages } from "@/db/schema";
+import { whatsappTemplates, whatsappMessages } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { formatPhoneForWhatsapp, sendWhatsappTemplateMessage } from "./client";
 import { notificationEvents, type NotificationEvent } from "./events";

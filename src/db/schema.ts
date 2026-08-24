@@ -209,6 +209,7 @@ export const payments = pgTable("payments", {
 export const businessSettings = pgTable("business_settings", {
   id: serial("id").primaryKey(),
   businessName: varchar("business_name", { length: 160 }).notNull().default("My Mobile Repair Shop"),
+  logoPath: varchar("logo_path", { length: 500 }),
   gstin: varchar("gstin", { length: 15 }),
   address: text("address"),
   phone: varchar("phone", { length: 20 }),

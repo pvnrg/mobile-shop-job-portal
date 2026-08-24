@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, Smartphone } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { SidebarNav } from "./sidebar-nav";
+import { BrandMark } from "./brand-mark";
 
-export function MobileNav() {
+export function MobileNav({
+  logoPath,
+  businessName,
+}: {
+  logoPath?: string | null;
+  businessName: string;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -19,10 +26,8 @@ export function MobileNav() {
       <SheetContent side="left" className="w-64 p-0">
         <SheetHeader className="border-b px-4 py-4">
           <SheetTitle className="flex items-center gap-2 text-base">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Smartphone className="h-4 w-4" />
-            </div>
-            MobileFix Portal
+            <BrandMark logoPath={logoPath} />
+            <span className="truncate">{businessName}</span>
           </SheetTitle>
         </SheetHeader>
         <div className="p-3">

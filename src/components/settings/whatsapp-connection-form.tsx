@@ -106,7 +106,7 @@ export function WhatsappConnectionForm({ settings }: { settings: WhatsappSetting
             placeholder="91"
           />
           <p className="text-xs text-muted-foreground">
-            Used when a customer's saved phone number is a plain 10-digit number.
+            Used when a customer&apos;s saved phone number is a plain 10-digit number.
           </p>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { jobs, invoices, businessSettings } from "@/db/schema";
+import { jobs, invoices } from "@/db/schema";
 import { sql } from "drizzle-orm";
 
 async function getSettings() {
