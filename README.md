@@ -1,5 +1,11 @@
 # MobileFix Portal
 
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![Drizzle ORM](https://img.shields.io/badge/Drizzle-ORM-C5F74F?logo=drizzle&logoColor=black)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38BDF8?logo=tailwindcss&logoColor=white)
+
 A mobile repair shop management portal built with Next.js (App Router), PostgreSQL, and Drizzle ORM.
 
 ## Features
@@ -45,6 +51,7 @@ A mobile repair shop management portal built with Next.js (App Router), PostgreS
 - `npm run db:push` — push the current schema directly to the database (used in dev)
 - `npm run db:studio` — open Drizzle Studio to browse data
 - `npm run db:seed` — seed the default admin user + business settings
+- `npm run db:seed-devices` — seed the Device Type / Brand / Model master catalog
 
 ## Notes
 
