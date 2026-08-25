@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Smartphone } from "lucide-react";
 import { LoginForm } from "./login-form";
 import { db } from "@/db";
+import { getLogoUrl } from "@/lib/logo";
 
 export default async function LoginPage({
   searchParams,
@@ -14,15 +15,16 @@ export default async function LoginPage({
   ]);
 
   const businessName = settings?.businessName ?? "MobileFix Portal";
+  const logoUrl = getLogoUrl(settings?.logoPath);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-muted/50 via-background to-muted/30 p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          {settings?.logoPath ? (
+          {logoUrl ? (
             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border bg-background">
               <Image
-                src={settings.logoPath}
+                src={logoUrl}
                 alt=""
                 width={48}
                 height={48}

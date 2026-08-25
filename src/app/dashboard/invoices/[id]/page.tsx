@@ -22,6 +22,7 @@ import { PrintButton } from "@/components/invoices/print-button";
 import { SendWhatsappButton } from "@/components/invoices/send-whatsapp-button";
 import { CreditCard, XCircle } from "lucide-react";
 import { cancelInvoiceAction } from "@/lib/actions/invoices";
+import { getLogoUrl } from "@/lib/logo";
 
 export default async function InvoiceDetailPage({
   params,
@@ -46,6 +47,7 @@ export default async function InvoiceDetailPage({
 
   const balanceDue = Number(invoice.total) - Number(invoice.amountPaid);
   const cancelAction = cancelInvoiceAction.bind(null, invoiceId);
+  const logoUrl = getLogoUrl(settings?.logoPath);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -82,10 +84,10 @@ export default async function InvoiceDetailPage({
         <CardContent className="space-y-6 pt-6">
           <div className="flex flex-col justify-between gap-4 sm:flex-row">
             <div className="flex items-start gap-3">
-              {settings?.logoPath && (
+              {logoUrl && (
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-background">
                   <Image
-                    src={settings.logoPath}
+                    src={logoUrl}
                     alt=""
                     width={48}
                     height={48}

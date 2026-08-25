@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Smartphone, Trash2, Upload } from "lucide-react";
 import { uploadLogoAction, removeLogoAction, type LogoFormState } from "@/lib/actions/logo";
+import { getLogoUrl } from "@/lib/logo";
 
 function UploadButton() {
   const { pending } = useFormStatus();
@@ -21,12 +22,13 @@ function UploadButton() {
 export function LogoUploadForm({ logoPath }: { logoPath: string | null | undefined }) {
   const [state, formAction] = useActionState<LogoFormState, FormData>(uploadLogoAction, {});
   const formRef = useRef<HTMLFormElement>(null);
+  const logoUrl = getLogoUrl(logoPath);
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
       <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/40">
-        {logoPath ? (
-          <Image src={logoPath} alt="Business logo" width={64} height={64} className="h-full w-full object-contain" unoptimized />
+        {logoUrl ? (
+          <Image src={logoUrl} alt="Business logo" width={64} height={64} className="h-full w-full object-contain" unoptimized />
         ) : (
           <Smartphone className="h-6 w-6 text-muted-foreground" />
         )}

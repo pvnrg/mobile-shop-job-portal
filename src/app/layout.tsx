@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { db } from "@/db";
+import { getLogoUrl } from "@/lib/logo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: settings?.businessName ?? "MobileFix Portal",
     description: "Mobile repair shop management portal",
-    icons: { icon: settings?.logoPath ?? "/default-favicon.ico" },
+    icons: { icon: getLogoUrl(settings?.logoPath) ?? "/default-favicon.ico" },
   };
 }
 

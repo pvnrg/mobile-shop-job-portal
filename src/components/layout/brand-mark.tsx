@@ -1,11 +1,14 @@
 import Image from "next/image";
 import { Smartphone } from "lucide-react";
+import { getLogoUrl } from "@/lib/logo";
 
 export function BrandMark({ logoPath }: { logoPath: string | null | undefined }) {
-  if (logoPath) {
+  const logoUrl = getLogoUrl(logoPath);
+
+  if (logoUrl) {
     return (
       <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-background">
-        <Image src={logoPath} alt="" width={32} height={32} className="h-full w-full object-contain" unoptimized />
+        <Image src={logoUrl} alt="" width={32} height={32} className="h-full w-full object-contain" unoptimized />
       </div>
     );
   }

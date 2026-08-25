@@ -49,16 +49,15 @@ export async function uploadLogoAction(
 
   if (settings.logoPath) {
     try {
-      await unlink(path.resolve(process.cwd(), "public", settings.logoPath.replace(/^\//, "")));
+      await unlink(path.join(LOGO_DIR, path.basename(settings.logoPath)));
     } catch {
       // old logo file already missing; ignore
     }
   }
 
-  const publicPath = `/uploads/logo/${fileName}`;
   await db
     .update(businessSettings)
-    .set({ logoPath: publicPath, updatedAt: new Date() })
+    .set({ logoPath: fileName, updatedAt: new Date() })
     .where(eq(businessSettings.id, settings.id));
 
   revalidatePath("/dashboard/settings");
@@ -72,7 +71,7 @@ export async function removeLogoAction() {
   if (!settings?.logoPath) return;
 
   try {
-    await unlink(path.resolve(process.cwd(), "public", settings.logoPath.replace(/^\//, "")));
+    await unlink(path.join(LOGO_DIR, path.basename(settings.logoPath)));
   } catch {
     // file already missing; ignore
   }
