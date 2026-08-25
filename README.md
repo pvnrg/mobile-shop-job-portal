@@ -53,6 +53,20 @@ A mobile repair shop management portal built with Next.js (App Router), PostgreS
 - `npm run db:seed` — seed the default admin user + business settings
 - `npm run db:seed-devices` — seed the Device Type / Brand / Model master catalog
 
+## Security
+
+The seeded default admin (`admin@mobileshop.local` / `Admin@12345`, created by `db:seed`) is
+meant only to bootstrap a brand-new install so you have *some* way to log in and create real
+accounts. Its credentials are visible in this public repo's source (`src/db/seed.ts`), so on any
+deployment that's reachable outside your own machine:
+
+1. Log in as the default admin once.
+2. Create your own admin account from Settings → Staff.
+3. Disable the default admin from that same screen (or delete the row from the `users` table).
+
+The login page intentionally does **not** display these default credentials — that text was
+removed once real accounts exist, since printing them on a public login screen defeats the point.
+
 ## Notes
 
 - Uploaded files are stored under `./uploads` (configurable via `UPLOAD_DIR`) and served through `/api/files/...`, which is protected by the same login as the rest of the portal.

@@ -41,9 +41,6 @@ export default async function LoginPage({
           </p>
         </div>
         <LoginForm callbackUrl={callbackUrl ?? "/dashboard"} />
-        <p className="text-center text-xs text-muted-foreground">
-          Default admin: admin@mobileshop.local / Admin@12345
-        </p>
       </div>
     </div>
   );
