@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
+import { db } from "@/db";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,10 +16,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "MobileFix Portal",
-  description: "Mobile repair shop management portal",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await db.query.businessSettings.findFirst();
+
+  return {
+    title: settings?.businessName ?? "MobileFix Portal",
+    description: "Mobile repair shop management portal",
+    icons: { icon: settings?.logoPath ?? "/default-favicon.ico" },
+  };
+}
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
