@@ -1,13 +1,13 @@
 "use server";
 
 import { db } from "@/db";
-import { jobs, jobStatusHistory } from "@/db/schema";
+import { jobs, jobStatusHistory, invoices, payments } from "@/db/schema";
 import { jobSchema, jobStatusUpdateSchema } from "@/lib/validation/job";
 import { generateJobNumber } from "@/lib/numbering";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { notifyJobStatusChange } from "@/lib/whatsapp/triggers";
 
 export type FormState = {
@@ -111,34 +111,82 @@ export async function updateJobStatusAction(
   const parsed = jobStatusUpdateSchema.safeParse({
     status: formData.get("status"),
     note: formData.get("note"),
+    amountPaid: formData.get("amountPaid") ?? "",
+    paymentMethod: formData.get("paymentMethod") || undefined,
   });
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
+  const amountPaidNow =
+    parsed.data.amountPaid === "" || parsed.data.amountPaid === undefined
+      ? 0
+      : Number(parsed.data.amountPaid);
+
+  if (amountPaidNow > 0 && !parsed.data.paymentMethod) {
+    return { fieldErrors: { paymentMethod: ["Select a payment method."] } };
+  }
+
+  const job = await db.query.jobs.findFirst({ where: eq(jobs.id, jobId) });
+  if (!job) {
+    return { error: "Job not found." };
+  }
+
   const session = await auth();
   const userId = session?.user?.id ? Number(session.user.id) : null;
 
-  await db
-    .update(jobs)
-    .set({
-      status: parsed.data.status,
-      updatedAt: new Date(),
-      deliveredAt: parsed.data.status === "delivered" ? new Date() : undefined,
-    })
-    .where(eq(jobs.id, jobId));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(jobs)
+      .set({
+        status: parsed.data.status,
+        updatedAt: new Date(),
+        deliveredAt: parsed.data.status === "delivered" ? new Date() : undefined,
+      })
+      .where(eq(jobs.id, jobId));
 
-  await db.insert(jobStatusHistory).values({
-    jobId,
-    status: parsed.data.status,
-    note: parsed.data.note || null,
-    changedBy: userId,
+    await tx.insert(jobStatusHistory).values({
+      jobId,
+      status: parsed.data.status,
+      note: parsed.data.note || null,
+      changedBy: userId,
+    });
+
+    if (amountPaidNow > 0) {
+      const invoice = await tx.query.invoices.findFirst({
+        where: and(eq(invoices.jobId, jobId), ne(invoices.status, "cancelled")),
+      });
+
+      await tx.insert(payments).values({
+        invoiceId: invoice?.id ?? null,
+        jobId,
+        customerId: job.customerId,
+        amount: String(amountPaidNow),
+        method: parsed.data.paymentMethod!,
+        notes: `Recorded on marking job as ${parsed.data.status}`,
+        recordedBy: userId,
+      });
+
+      if (invoice) {
+        const newPaid = Number(invoice.amountPaid) + amountPaidNow;
+        const newStatus = newPaid >= Number(invoice.total) ? "paid" : "partially_paid";
+        await tx
+          .update(invoices)
+          .set({ amountPaid: String(newPaid), status: newStatus, updatedAt: new Date() })
+          .where(eq(invoices.id, invoice.id));
+      }
+    }
   });
 
   await notifyJobStatusChange(jobId, parsed.data.status);
 
   revalidatePath(`/dashboard/jobs/${jobId}`);
   revalidatePath("/dashboard/jobs");
+  if (amountPaidNow > 0) {
+    revalidatePath("/dashboard/payments");
+    revalidatePath("/dashboard/customers");
+    revalidatePath("/dashboard/invoices");
+  }
   return {};
 }
 

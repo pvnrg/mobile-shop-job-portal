@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -13,9 +15,14 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { updateJobStatusAction, type FormState } from "@/lib/actions/jobs";
-import { jobStatusLabels, jobStatuses, type JobStatus } from "@/lib/status";
+import {
+  jobStatusLabels,
+  jobStatuses,
+  paymentMethodLabels,
+  paymentMethods,
+  type JobStatus,
+} from "@/lib/status";
 import { toast } from "sonner";
-import { useEffect, useRef } from "react";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -36,8 +43,18 @@ export function StatusUpdateForm({
 }) {
   const action = updateJobStatusAction.bind(null, jobId);
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
+  const [selectedStatus, setSelectedStatus] = useState<JobStatus>(currentStatus);
+  const [prevCurrentStatus, setPrevCurrentStatus] = useState(currentStatus);
   const formRef = useRef<HTMLFormElement>(null);
   const prevState = useRef(state);
+
+  // currentStatus only changes once the server confirms the update (after
+  // revalidation) — syncing selectedStatus to it here, during render, keeps
+  // the payment-fields visibility correct without a setState-in-effect.
+  if (currentStatus !== prevCurrentStatus) {
+    setPrevCurrentStatus(currentStatus);
+    setSelectedStatus(currentStatus);
+  }
 
   useEffect(() => {
     if (state !== prevState.current) {
@@ -52,7 +69,12 @@ export function StatusUpdateForm({
   return (
     <form ref={formRef} action={formAction} className="space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Select key={currentStatus} name="status" defaultValue={currentStatus}>
+        <Select
+          key={currentStatus}
+          name="status"
+          defaultValue={currentStatus}
+          onValueChange={(value) => setSelectedStatus(value as JobStatus)}
+        >
           <SelectTrigger className="w-full sm:w-56">
             <SelectValue />
           </SelectTrigger>
@@ -67,6 +89,41 @@ export function StatusUpdateForm({
         <SubmitButton />
       </div>
       <Textarea name="note" placeholder="Add a note about this update (optional)..." rows={2} />
+
+      {selectedStatus === "delivered" && (
+        <div className="space-y-2 rounded-lg border border-dashed p-3">
+          <Label className="text-xs">Amount Paid by Customer (optional)</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Input
+              name="amountPaid"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              className="text-sm"
+            />
+            <Select name="paymentMethod" defaultValue="cash">
+              <SelectTrigger className="w-full text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {paymentMethodLabels[m]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {state.fieldErrors?.paymentMethod && (
+            <p className="text-xs text-destructive">{state.fieldErrors.paymentMethod[0]}</p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Links to this job&apos;s invoice automatically if one exists.
+          </p>
+        </div>
+      )}
+
       {state.error && <p className="text-xs text-destructive">{state.error}</p>}
     </form>
   );

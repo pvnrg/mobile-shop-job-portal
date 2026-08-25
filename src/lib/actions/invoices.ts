@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { invoices, invoiceItems } from "@/db/schema";
+import { invoices, invoiceItems, payments } from "@/db/schema";
 import { invoiceSchema } from "@/lib/validation/invoice";
 import { computeInvoiceTotals } from "@/lib/gst";
 import { generateInvoiceNumber } from "@/lib/numbering";
@@ -36,6 +36,8 @@ export async function createInvoiceAction(
     notes: formData.get("notes"),
     dueAt: formData.get("dueAt") ?? "",
     items,
+    amountPaid: formData.get("amountPaid") ?? "",
+    paymentMethod: formData.get("paymentMethod") || undefined,
   });
 
   if (!parsed.success) {
@@ -51,6 +53,27 @@ export async function createInvoiceAction(
       : Number(parsed.data.discount);
 
   const totals = computeInvoiceTotals(parsed.data.items, discount, parsed.data.gstType);
+
+  const amountPaidNow =
+    parsed.data.amountPaid === "" || parsed.data.amountPaid === undefined
+      ? 0
+      : Number(parsed.data.amountPaid);
+
+  if (amountPaidNow > totals.total) {
+    return {
+      fieldErrors: { amountPaid: ["Amount paid can't exceed the invoice total."] },
+    };
+  }
+  if (amountPaidNow > 0 && !parsed.data.paymentMethod) {
+    return { fieldErrors: { paymentMethod: ["Select a payment method."] } };
+  }
+
+  const invoiceStatus =
+    amountPaidNow >= totals.total && totals.total > 0
+      ? "paid"
+      : amountPaidNow > 0
+        ? "partially_paid"
+        : "issued";
 
   let invoiceId: number | null = null;
   for (let attempt = 0; attempt < 3 && !invoiceId; attempt++) {
@@ -72,7 +95,8 @@ export async function createInvoiceAction(
             sgstAmount: String(totals.sgst),
             igstAmount: String(totals.igst),
             total: String(totals.total),
-            status: "issued",
+            amountPaid: String(amountPaidNow),
+            status: invoiceStatus,
             placeOfSupply: parsed.data.placeOfSupply || null,
             notes: parsed.data.notes || null,
             issuedAt: new Date(),
@@ -93,6 +117,21 @@ export async function createInvoiceAction(
           }))
         );
 
+        if (amountPaidNow > 0) {
+          await tx.insert(payments).values({
+            invoiceId: invoice.id,
+            jobId:
+              parsed.data.jobId === "" || parsed.data.jobId === undefined
+                ? null
+                : Number(parsed.data.jobId),
+            customerId: parsed.data.customerId,
+            amount: String(amountPaidNow),
+            method: parsed.data.paymentMethod!,
+            notes: "Paid at invoice creation",
+            recordedBy: userId,
+          });
+        }
+
         return invoice.id;
       });
     } catch (err: unknown) {
@@ -110,6 +149,10 @@ export async function createInvoiceAction(
   }
 
   revalidatePath("/dashboard/invoices");
+  revalidatePath("/dashboard/customers");
+  if (amountPaidNow > 0) {
+    revalidatePath("/dashboard/payments");
+  }
   if (parsed.data.jobId) {
     revalidatePath(`/dashboard/jobs/${parsed.data.jobId}`);
   }

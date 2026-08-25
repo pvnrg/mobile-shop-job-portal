@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paymentMethods } from "@/lib/status";
 
 export const invoiceItemSchema = z.object({
   description: z.string().trim().min(1, "Description required").max(255),
@@ -17,6 +18,8 @@ export const invoiceSchema = z.object({
   notes: z.string().trim().max(2000).optional(),
   dueAt: z.union([z.literal(""), z.string()]).optional(),
   items: z.array(invoiceItemSchema).min(1, "Add at least one line item"),
+  amountPaid: z.union([z.literal(""), z.coerce.number().min(0)]).optional(),
+  paymentMethod: z.enum(paymentMethods).optional(),
 });
 
 export type InvoiceInput = z.infer<typeof invoiceSchema>;

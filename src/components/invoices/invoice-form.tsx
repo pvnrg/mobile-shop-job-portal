@@ -7,10 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { CustomerCombobox, type CustomerOption } from "@/components/customers/customer-combobox";
 import { computeInvoiceTotals, type GstType } from "@/lib/gst";
 import { formatCurrency } from "@/lib/format";
+import { paymentMethodLabels, paymentMethods } from "@/lib/status";
 import type { FormState } from "@/lib/actions/invoices";
 
 type LineItem = {
@@ -58,6 +66,7 @@ export function InvoiceForm({
   );
   const [gstType, setGstType] = useState<GstType>("intra");
   const [discount, setDiscount] = useState(0);
+  const [amountPaid, setAmountPaid] = useState<number | "">("");
 
   const totals = useMemo(
     () => computeInvoiceTotals(items, discount, gstType),
@@ -261,6 +270,74 @@ export function InvoiceForm({
             <span>Total</span>
             <span>{formatCurrency(totals.total)}</span>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          <div>
+            <Label className="text-sm">Payment Received Now (optional)</Label>
+            <p className="text-xs text-muted-foreground">
+              If the customer is paying some or all of this invoice right away, record it here.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="amountPaid">Amount (₹)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="amountPaid"
+                  name="amountPaid"
+                  type="number"
+                  min="0"
+                  max={totals.total}
+                  step="0.01"
+                  value={amountPaid}
+                  onChange={(e) =>
+                    setAmountPaid(e.target.value === "" ? "" : Number(e.target.value))
+                  }
+                  placeholder="0.00"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAmountPaid(totals.total)}
+                >
+                  Full Amount
+                </Button>
+              </div>
+              {state.fieldErrors?.amountPaid && (
+                <p className="text-xs text-destructive">{state.fieldErrors.amountPaid[0]}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">Payment Method</Label>
+              <Select name="paymentMethod" defaultValue="cash">
+                <SelectTrigger id="paymentMethod" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {paymentMethodLabels[m]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {state.fieldErrors?.paymentMethod && (
+                <p className="text-xs text-destructive">{state.fieldErrors.paymentMethod[0]}</p>
+              )}
+            </div>
+          </div>
+          {typeof amountPaid === "number" && amountPaid > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Balance due after this payment:{" "}
+              <span className="font-medium text-foreground">
+                {formatCurrency(Math.max(0, totals.total - amountPaid))}
+              </span>
+            </p>
+          )}
         </CardContent>
       </Card>
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { jobStatuses } from "@/lib/status";
+import { jobStatuses, paymentMethods } from "@/lib/status";
 
 export const jobSchema = z.object({
   customerId: z.coerce.number().int().positive("Select a customer"),
@@ -24,4 +24,6 @@ export type JobInput = z.infer<typeof jobSchema>;
 export const jobStatusUpdateSchema = z.object({
   status: z.enum(jobStatuses),
   note: z.string().trim().max(2000).optional(),
+  amountPaid: z.union([z.literal(""), z.coerce.number().min(0)]).optional(),
+  paymentMethod: z.enum(paymentMethods).optional(),
 });
