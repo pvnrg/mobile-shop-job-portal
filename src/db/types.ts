@@ -14,6 +14,9 @@ import type {
   whatsappSettings,
   whatsappTemplates,
   whatsappMessages,
+  parts,
+  jobParts,
+  partStockAdjustments,
 } from "./schema";
 
 export type Customer = typeof customers.$inferSelect;
@@ -31,3 +34,6 @@ export type DeviceModel = typeof deviceModels.$inferSelect;
 export type WhatsappSettings = typeof whatsappSettings.$inferSelect;
 export type WhatsappTemplate = typeof whatsappTemplates.$inferSelect;
 export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
+export type Part = typeof parts.$inferSelect;
+export type JobPart = typeof jobParts.$inferSelect;
+export type PartStockAdjustment = typeof partStockAdjustments.$inferSelect;

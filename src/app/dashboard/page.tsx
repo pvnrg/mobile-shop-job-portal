@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { db } from "@/db";
-import { jobs, invoices, payments, customers } from "@/db/schema";
-import { desc, eq, gte, sql, ne } from "drizzle-orm";
+import { jobs, invoices, payments, customers, parts } from "@/db/schema";
+import { desc, eq, gte, sql, ne, and } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { jobStatusColors, jobStatusLabels } from "@/lib/status";
-import { Users, Wrench, IndianRupee, AlertCircle, Plus } from "lucide-react";
+import { Users, Wrench, IndianRupee, AlertCircle, Plus, PackageX } from "lucide-react";
 
 export default async function DashboardPage() {
   const startOfMonth = new Date();
@@ -19,6 +19,7 @@ export default async function DashboardPage() {
     totalCustomers,
     monthPayments,
     outstandingInvoices,
+    lowStockCount,
     recentJobs,
   ] = await Promise.all([
     db
@@ -34,6 +35,10 @@ export default async function DashboardPage() {
       .select({ total: sql<string>`coalesce(sum(${invoices.total} - ${invoices.amountPaid}), 0)` })
       .from(invoices)
       .where(sql`${invoices.status} NOT IN ('paid', 'cancelled', 'draft')`),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(parts)
+      .where(and(eq(parts.active, 1), sql`${parts.quantityInStock} <= ${parts.lowStockThreshold}`)),
     db
       .select({ job: jobs, customerName: customers.name })
       .from(jobs)
@@ -66,6 +71,12 @@ export default async function DashboardPage() {
       value: formatCurrency(outstandingInvoices[0]?.total ?? "0"),
       icon: AlertCircle,
       href: "/dashboard/invoices",
+    },
+    {
+      label: "Low Stock Parts",
+      value: String(lowStockCount[0]?.count ?? 0),
+      icon: PackageX,
+      href: "/dashboard/inventory",
     },
   ];
 

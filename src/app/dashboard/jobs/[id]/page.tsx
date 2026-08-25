@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { jobs, jobStatusHistory, media, users, invoices } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { jobs, jobStatusHistory, media, users, invoices, parts, jobParts } from "@/db/schema";
+import { eq, desc, asc, and } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { jobStatusColors, jobStatusLabels } from "@/lib/status";
 import { StatusUpdateForm } from "@/components/jobs/status-update-form";
 import { MediaUploadForm } from "@/components/jobs/media-upload";
 import { MediaGallery } from "@/components/jobs/media-gallery";
+import { JobPartsSection } from "@/components/jobs/job-parts-section";
 import { ClearInvoiceButton } from "@/components/customers/clear-invoice-button";
 import {
   CheckCircle2,
@@ -49,6 +50,26 @@ export default async function JobDetailPage({
       ? db.query.users.findFirst({ where: eq(users.id, job.assignedTo) })
       : Promise.resolve(undefined),
     db.select().from(invoices).where(eq(invoices.jobId, jobId)),
+  ]);
+
+  const [availableParts, partUsages] = await Promise.all([
+    db
+      .select({
+        id: parts.id,
+        name: parts.name,
+        sku: parts.sku,
+        quantityInStock: parts.quantityInStock,
+        sellingPrice: parts.sellingPrice,
+      })
+      .from(parts)
+      .where(and(eq(parts.active, 1)))
+      .orderBy(asc(parts.name)),
+    db
+      .select({ usage: jobParts, partName: parts.name })
+      .from(jobParts)
+      .innerJoin(parts, eq(jobParts.partId, parts.id))
+      .where(eq(jobParts.jobId, jobId))
+      .orderBy(desc(jobParts.usedAt)),
   ]);
 
   const jobInvoice = jobInvoices[0];
@@ -168,6 +189,27 @@ export default async function JobDetailPage({
                   <p className="mt-1 whitespace-pre-wrap">{job.notes}</p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Parts Used</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <JobPartsSection
+                jobId={job.id}
+                parts={availableParts}
+                usages={partUsages.map(({ usage, partName }) => ({
+                  id: usage.id,
+                  partId: usage.partId,
+                  partName,
+                  quantity: usage.quantity,
+                  unitCostAtUse: usage.unitCostAtUse,
+                  unitPriceAtUse: usage.unitPriceAtUse,
+                  usedAt: usage.usedAt,
+                }))}
+              />
             </CardContent>
           </Card>
 

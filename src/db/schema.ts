@@ -263,6 +263,49 @@ export const deviceModels = pgTable(
   (t) => [uniqueIndex("device_model_uniq").on(t.brandId, t.deviceTypeId, t.name)]
 );
 
+// ---------- Spare parts / inventory ----------
+export const parts = pgTable("parts", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 160 }).notNull(),
+  sku: varchar("sku", { length: 60 }),
+  category: varchar("category", { length: 80 }),
+  unitCost: numeric("unit_cost", { precision: 10, scale: 2 }).notNull().default("0"),
+  sellingPrice: numeric("selling_price", { precision: 10, scale: 2 }).notNull().default("0"),
+  quantityInStock: integer("quantity_in_stock").notNull().default(0),
+  lowStockThreshold: integer("low_stock_threshold").notNull().default(5),
+  notes: text("notes"),
+  active: integer("active").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const jobParts = pgTable("job_parts", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  partId: integer("part_id")
+    .notNull()
+    .references(() => parts.id, { onDelete: "restrict" }),
+  quantity: integer("quantity").notNull().default(1),
+  unitCostAtUse: numeric("unit_cost_at_use", { precision: 10, scale: 2 }).notNull(),
+  unitPriceAtUse: numeric("unit_price_at_use", { precision: 10, scale: 2 }).notNull(),
+  usedAt: timestamp("used_at").notNull().defaultNow(),
+  recordedBy: integer("recorded_by").references(() => users.id, { onDelete: "set null" }),
+});
+
+export const partStockAdjustments = pgTable("part_stock_adjustments", {
+  id: serial("id").primaryKey(),
+  partId: integer("part_id")
+    .notNull()
+    .references(() => parts.id, { onDelete: "cascade" }),
+  changeQuantity: integer("change_quantity").notNull(),
+  reason: varchar("reason", { length: 120 }),
+  note: text("note"),
+  recordedBy: integer("recorded_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // ---------- WhatsApp notifications ----------
 export const whatsappSettings = pgTable("whatsapp_settings", {
   id: serial("id").primaryKey(),
@@ -313,6 +356,7 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   media: many(media),
   invoices: many(invoices),
   payments: many(payments),
+  partsUsed: many(jobParts),
 }));
 
 export const jobStatusHistoryRelations = relations(jobStatusHistory, ({ one }) => ({
@@ -377,4 +421,20 @@ export const whatsappMessagesRelations = relations(whatsappMessages, ({ one }) =
   customer: one(customers, { fields: [whatsappMessages.customerId], references: [customers.id] }),
   job: one(jobs, { fields: [whatsappMessages.jobId], references: [jobs.id] }),
   invoice: one(invoices, { fields: [whatsappMessages.invoiceId], references: [invoices.id] }),
+}));
+
+export const partsRelations = relations(parts, ({ many }) => ({
+  jobUsages: many(jobParts),
+  stockAdjustments: many(partStockAdjustments),
+}));
+
+export const jobPartsRelations = relations(jobParts, ({ one }) => ({
+  job: one(jobs, { fields: [jobParts.jobId], references: [jobs.id] }),
+  part: one(parts, { fields: [jobParts.partId], references: [parts.id] }),
+  recordedByUser: one(users, { fields: [jobParts.recordedBy], references: [users.id] }),
+}));
+
+export const partStockAdjustmentsRelations = relations(partStockAdjustments, ({ one }) => ({
+  part: one(parts, { fields: [partStockAdjustments.partId], references: [parts.id] }),
+  recordedByUser: one(users, { fields: [partStockAdjustments.recordedBy], references: [users.id] }),
 }));
