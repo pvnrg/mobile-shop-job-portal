@@ -10,6 +10,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { formatPhoneForWhatsapp, sendWhatsappTemplateMessage } from "@/lib/whatsapp/client";
+import { ensureWhatsappTokenChecked, checkWhatsappTokenNow } from "@/lib/whatsapp/token-status";
 
 export type FormState = {
   error?: string;
@@ -54,13 +55,25 @@ export async function updateWhatsappConnectionAction(
   if (existing) {
     await db
       .update(whatsappSettings)
-      .set({ ...values, ...(accessToken ? { accessToken } : {}) })
+      .set({
+        ...values,
+        ...(accessToken
+          ? { accessToken, tokenStatus: null, tokenStatusDetail: null, tokenExpiresAt: null, tokenCheckedAt: null }
+          : {}),
+      })
       .where(eq(whatsappSettings.id, existing.id));
   } else {
     await db.insert(whatsappSettings).values({ ...values, accessToken: accessToken ?? null });
   }
 
+  // Check the token right away when a new one was pasted, so status is fresh
+  // instead of waiting for the next dashboard load's lazy check.
+  if (accessToken) {
+    await ensureWhatsappTokenChecked(true);
+  }
+
   revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -142,4 +155,11 @@ export async function sendTestMessageAction(
   }
 
   return { success: true };
+}
+
+export async function checkWhatsappTokenAction() {
+  const result = await checkWhatsappTokenNow();
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard");
+  return result;
 }

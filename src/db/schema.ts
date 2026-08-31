@@ -315,6 +315,10 @@ export const whatsappSettings = pgTable("whatsapp_settings", {
   businessAccountId: varchar("business_account_id", { length: 60 }),
   apiVersion: varchar("api_version", { length: 20 }).notNull().default("v22.0"),
   defaultCountryCode: varchar("default_country_code", { length: 5 }).notNull().default("91"),
+  tokenStatus: varchar("token_status", { length: 20 }),
+  tokenStatusDetail: text("token_status_detail"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  tokenCheckedAt: timestamp("token_checked_at"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

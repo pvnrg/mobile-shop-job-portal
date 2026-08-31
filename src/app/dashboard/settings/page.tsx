@@ -13,15 +13,23 @@ import { WhatsappConnectionForm } from "@/components/settings/whatsapp-connectio
 import { WhatsappTemplatesList } from "@/components/settings/whatsapp-templates-list";
 import { WhatsappTestMessage } from "@/components/settings/whatsapp-test-message";
 import { WhatsappMessageLog } from "@/components/settings/whatsapp-message-log";
+import { WhatsappTokenStatus } from "@/components/settings/whatsapp-token-status";
 import { ensureWhatsappTemplateRows } from "@/lib/whatsapp/notify";
+import { ensureWhatsappTokenChecked } from "@/lib/whatsapp/token-status";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
   const session = await auth();
   if (session?.user?.role !== "admin") {
     redirect("/dashboard");
   }
 
   await ensureWhatsappTemplateRows();
+  await ensureWhatsappTokenChecked();
 
   const [settings, staff, whatsappSettings, whatsappTemplates, recentMessages] =
     await Promise.all([
@@ -48,7 +56,7 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="application">
+      <Tabs defaultValue={tab === "whatsapp" ? "whatsapp" : "application"}>
         <TabsList>
           <TabsTrigger value="application">Application</TabsTrigger>
           <TabsTrigger value="business">Business & GST</TabsTrigger>
@@ -111,7 +119,8 @@ export default async function SettingsPage() {
                 <span className="font-medium">developers.facebook.com</span>.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <WhatsappTokenStatus settings={whatsappSettings} />
               <WhatsappConnectionForm
                 key={whatsappSettings?.updatedAt?.toISOString() ?? "new"}
                 settings={whatsappSettings}
