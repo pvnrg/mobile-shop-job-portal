@@ -1,3 +1,5 @@
+const RICHAUTOMATE_BASE_URL = "https://richautomate.in/api/v1";
+
 export function formatPhoneForWhatsapp(phone: string, defaultCountryCode: string) {
   const digits = phone.replace(/\D/g, "");
   if (!digits) return null;
@@ -11,8 +13,6 @@ export function formatPhoneForWhatsapp(phone: string, defaultCountryCode: string
 
 export type SendTemplateMessageInput = {
   accessToken: string;
-  phoneNumberId: string;
-  apiVersion: string;
   to: string;
   templateName: string;
   languageCode: string;
@@ -26,7 +26,7 @@ export type SendTemplateMessageResult =
 export async function sendWhatsappTemplateMessage(
   input: SendTemplateMessageInput
 ): Promise<SendTemplateMessageResult> {
-  const url = `https://graph.facebook.com/${input.apiVersion}/${input.phoneNumberId}/messages`;
+  const url = `${RICHAUTOMATE_BASE_URL}/send-template`;
 
   try {
     const response = await fetch(url, {
@@ -36,22 +36,10 @@ export async function sendWhatsappTemplateMessage(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: input.to,
-        type: "template",
-        template: {
-          name: input.templateName,
-          language: { code: input.languageCode },
-          components:
-            input.bodyParams.length > 0
-              ? [
-                  {
-                    type: "body",
-                    parameters: input.bodyParams.map((text) => ({ type: "text", text })),
-                  },
-                ]
-              : undefined,
-        },
+        phone: input.to,
+        template: input.templateName,
+        language: input.languageCode,
+        variables: input.bodyParams,
       }),
     });
 
@@ -59,16 +47,12 @@ export async function sendWhatsappTemplateMessage(
 
     if (!response.ok) {
       const message =
-        data?.error?.message || `WhatsApp API request failed with status ${response.status}`;
+        data?.message || data?.error || `RichAutomate API request failed with status ${response.status}`;
       return { success: false, error: message };
     }
 
-    const messageId = data?.messages?.[0]?.id;
-    if (!messageId) {
-      return { success: false, error: "WhatsApp API returned no message id." };
-    }
-
-    return { success: true, messageId };
+    const messageId = data?.message_id || data?.id || data?.data?.message_id || data?.data?.id;
+    return { success: true, messageId: messageId ? String(messageId) : "sent" };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown network error";
     return { success: false, error: message };

@@ -5,18 +5,15 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { BrandMark } from "@/components/layout/brand-mark";
-import { WhatsappTokenBanner } from "@/components/layout/whatsapp-token-banner";
-import { ensureWhatsappTokenChecked } from "@/lib/whatsapp/token-status";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [session, settings, whatsappSettings] = await Promise.all([
+  const [session, settings] = await Promise.all([
     auth(),
     db.query.businessSettings.findFirst(),
-    ensureWhatsappTokenChecked(),
   ]);
   const user = session!.user;
   const businessName = settings?.businessName ?? "MobileFix Portal";
@@ -50,7 +47,6 @@ export default async function DashboardLayout({
             />
           </div>
         </header>
-        <WhatsappTokenBanner settings={whatsappSettings} />
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>

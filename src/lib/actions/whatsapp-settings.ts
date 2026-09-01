@@ -10,7 +10,6 @@ import {
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { formatPhoneForWhatsapp, sendWhatsappTemplateMessage } from "@/lib/whatsapp/client";
-import { ensureWhatsappTokenChecked, checkWhatsappTokenNow } from "@/lib/whatsapp/token-status";
 
 export type FormState = {
   error?: string;
@@ -25,9 +24,6 @@ export async function updateWhatsappConnectionAction(
   const parsed = whatsappConnectionSchema.safeParse({
     enabled: formData.get("enabled") === "on",
     accessToken: formData.get("accessToken") ?? "",
-    phoneNumberId: formData.get("phoneNumberId") ?? "",
-    businessAccountId: formData.get("businessAccountId") ?? "",
-    apiVersion: formData.get("apiVersion") || "v22.0",
     defaultCountryCode: formData.get("defaultCountryCode") || "91",
   });
 
@@ -39,9 +35,6 @@ export async function updateWhatsappConnectionAction(
 
   const values = {
     enabled: parsed.data.enabled ? 1 : 0,
-    phoneNumberId: parsed.data.phoneNumberId || null,
-    businessAccountId: parsed.data.businessAccountId || null,
-    apiVersion: parsed.data.apiVersion,
     defaultCountryCode: parsed.data.defaultCountryCode,
     updatedAt: new Date(),
   };
@@ -55,21 +48,10 @@ export async function updateWhatsappConnectionAction(
   if (existing) {
     await db
       .update(whatsappSettings)
-      .set({
-        ...values,
-        ...(accessToken
-          ? { accessToken, tokenStatus: null, tokenStatusDetail: null, tokenExpiresAt: null, tokenCheckedAt: null }
-          : {}),
-      })
+      .set({ ...values, ...(accessToken ? { accessToken } : {}) })
       .where(eq(whatsappSettings.id, existing.id));
   } else {
     await db.insert(whatsappSettings).values({ ...values, accessToken: accessToken ?? null });
-  }
-
-  // Check the token right away when a new one was pasted, so status is fresh
-  // instead of waiting for the next dashboard load's lazy check.
-  if (accessToken) {
-    await ensureWhatsappTokenChecked(true);
   }
 
   revalidatePath("/dashboard/settings");
@@ -121,8 +103,8 @@ export async function sendTestMessageAction(
   }
 
   const settings = await db.query.whatsappSettings.findFirst();
-  if (!settings || settings.enabled !== 1 || !settings.accessToken || !settings.phoneNumberId) {
-    return { error: "WhatsApp is not enabled, or Access Token / Phone Number ID is missing." };
+  if (!settings || settings.enabled !== 1 || !settings.accessToken) {
+    return { error: "WhatsApp is not enabled, or the RichAutomate API Key is missing." };
   }
 
   const template = await db.query.whatsappTemplates.findFirst({
@@ -142,8 +124,6 @@ export async function sendTestMessageAction(
 
   const result = await sendWhatsappTemplateMessage({
     accessToken: settings.accessToken,
-    phoneNumberId: settings.phoneNumberId,
-    apiVersion: settings.apiVersion,
     to: phone,
     templateName: template.templateName,
     languageCode: template.languageCode,
@@ -155,11 +135,4 @@ export async function sendTestMessageAction(
   }
 
   return { success: true };
-}
-
-export async function checkWhatsappTokenAction() {
-  const result = await checkWhatsappTokenNow();
-  revalidatePath("/dashboard/settings");
-  revalidatePath("/dashboard");
-  return result;
 }

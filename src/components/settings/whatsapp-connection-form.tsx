@@ -59,43 +59,18 @@ export function WhatsappConnectionForm({ settings }: { settings: WhatsappSetting
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="accessToken">Access Token</Label>
+          <Label htmlFor="accessToken">RichAutomate API Key</Label>
           <Input
             id="accessToken"
             name="accessToken"
             type="password"
-            placeholder={hasToken ? "•••••••••••••••• (saved — leave blank to keep)" : "Paste your Meta permanent access token"}
+            placeholder={hasToken ? "•••••••••••••••• (saved — leave blank to keep)" : "Paste your RichAutomate API key (ra_live_...)"}
             autoComplete="off"
           />
           <p className="text-xs text-muted-foreground">
-            From your Meta for Developers app → WhatsApp → API Setup. Never shown again once
-            saved — leave blank to keep the current token.
+            From your RichAutomate dashboard → Settings → API Keys. Never shown again once saved
+            — leave blank to keep the current key.
           </p>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="phoneNumberId">Phone Number ID</Label>
-          <Input
-            id="phoneNumberId"
-            name="phoneNumberId"
-            defaultValue={settings?.phoneNumberId ?? ""}
-            placeholder="e.g. 109876543210123"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="businessAccountId">Business Account ID (optional)</Label>
-          <Input
-            id="businessAccountId"
-            name="businessAccountId"
-            defaultValue={settings?.businessAccountId ?? ""}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="apiVersion">Graph API Version</Label>
-          <Input
-            id="apiVersion"
-            name="apiVersion"
-            defaultValue={settings?.apiVersion ?? "v22.0"}
-          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="defaultCountryCode">Default Country Code</Label>

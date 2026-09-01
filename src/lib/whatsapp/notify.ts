@@ -70,7 +70,6 @@ export async function sendNotification(input: SendNotificationInput) {
     !settings ||
     settings.enabled !== 1 ||
     !settings.accessToken ||
-    !settings.phoneNumberId ||
     !template ||
     template.enabled !== 1 ||
     !template.templateName ||
@@ -94,8 +93,6 @@ export async function sendNotification(input: SendNotificationInput) {
 
   const result = await sendWhatsappTemplateMessage({
     accessToken: settings.accessToken!,
-    phoneNumberId: settings.phoneNumberId!,
-    apiVersion: settings.apiVersion,
     to: phone,
     templateName: template.templateName!,
     languageCode: template.languageCode,

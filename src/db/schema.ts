@@ -306,19 +306,12 @@ export const partStockAdjustments = pgTable("part_stock_adjustments", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// ---------- WhatsApp notifications ----------
+// ---------- WhatsApp notifications (via RichAutomate API) ----------
 export const whatsappSettings = pgTable("whatsapp_settings", {
   id: serial("id").primaryKey(),
   enabled: integer("enabled").notNull().default(0),
   accessToken: text("access_token"),
-  phoneNumberId: varchar("phone_number_id", { length: 60 }),
-  businessAccountId: varchar("business_account_id", { length: 60 }),
-  apiVersion: varchar("api_version", { length: 20 }).notNull().default("v22.0"),
   defaultCountryCode: varchar("default_country_code", { length: 5 }).notNull().default("91"),
-  tokenStatus: varchar("token_status", { length: 20 }),
-  tokenStatusDetail: text("token_status_detail"),
-  tokenExpiresAt: timestamp("token_expires_at"),
-  tokenCheckedAt: timestamp("token_checked_at"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

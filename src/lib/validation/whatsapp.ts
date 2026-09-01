@@ -4,9 +4,6 @@ import { notificationEvents } from "@/lib/whatsapp/events";
 export const whatsappConnectionSchema = z.object({
   enabled: z.coerce.boolean(),
   accessToken: z.string().trim().optional(),
-  phoneNumberId: z.string().trim().max(60).optional(),
-  businessAccountId: z.string().trim().max(60).optional(),
-  apiVersion: z.string().trim().min(1).max(20),
   defaultCountryCode: z
     .string()
     .trim()

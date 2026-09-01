@@ -13,9 +13,7 @@ import { WhatsappConnectionForm } from "@/components/settings/whatsapp-connectio
 import { WhatsappTemplatesList } from "@/components/settings/whatsapp-templates-list";
 import { WhatsappTestMessage } from "@/components/settings/whatsapp-test-message";
 import { WhatsappMessageLog } from "@/components/settings/whatsapp-message-log";
-import { WhatsappTokenStatus } from "@/components/settings/whatsapp-token-status";
 import { ensureWhatsappTemplateRows } from "@/lib/whatsapp/notify";
-import { ensureWhatsappTokenChecked } from "@/lib/whatsapp/token-status";
 
 export default async function SettingsPage({
   searchParams,
@@ -29,7 +27,6 @@ export default async function SettingsPage({
   }
 
   await ensureWhatsappTemplateRows();
-  await ensureWhatsappTokenChecked();
 
   const [settings, staff, whatsappSettings, whatsappTemplates, recentMessages] =
     await Promise.all([
@@ -114,13 +111,12 @@ export default async function SettingsPage({
             <CardHeader>
               <CardTitle className="text-base">WhatsApp Connection</CardTitle>
               <CardDescription>
-                Connect your Meta WhatsApp Business Cloud API account. Requires an approved
-                WhatsApp Business account, an access token, and a phone number ID from{" "}
-                <span className="font-medium">developers.facebook.com</span>.
+                Connect your RichAutomate WhatsApp API account. Requires an API key from{" "}
+                <span className="font-medium">richautomate.in</span> dashboard → Settings → API
+                Keys.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <WhatsappTokenStatus settings={whatsappSettings} />
               <WhatsappConnectionForm
                 key={whatsappSettings?.updatedAt?.toISOString() ?? "new"}
                 settings={whatsappSettings}
@@ -133,9 +129,9 @@ export default async function SettingsPage({
               <CardTitle className="text-base">Message Templates</CardTitle>
               <CardDescription>
                 WhatsApp only allows business-initiated messages using pre-approved templates.
-                Create matching templates in Meta Business Manager, then enter their exact name
-                here for each event. Each template must accept the parameters listed below, in
-                order.
+                Create matching templates in your RichAutomate dashboard, then enter their exact
+                name here for each event. Each template must accept the parameters listed below,
+                in order.
               </CardDescription>
             </CardHeader>
             <CardContent>
