@@ -7,6 +7,7 @@ import {
   Settings,
   Boxes,
   BarChart3,
+  Globe,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,5 +25,6 @@ export const navItems: NavItem[] = [
   { title: "Payments", href: "/dashboard/payments", icon: CreditCard },
   { title: "Invoices (GST)", href: "/dashboard/invoices", icon: Receipt },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3 },
+  { title: "Site Management", href: "/dashboard/site", icon: Globe },
   { title: "Settings", href: "/dashboard/settings", icon: Settings },
 ];

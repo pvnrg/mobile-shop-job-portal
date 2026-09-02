@@ -4,6 +4,11 @@ import { NextResponse } from "next/server";
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const isLoginPage = req.nextUrl.pathname === "/login";
+  const isPublicSite = req.nextUrl.pathname === "/";
+
+  if (isPublicSite) {
+    return NextResponse.next();
+  }
 
   if (!isLoggedIn && !isLoginPage) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
@@ -19,5 +24,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!api/auth|api/logo|_next/static|_next/image|favicon.ico|uploads).*)"],
+  matcher: ["/((?!api/auth|api/logo|api/site-media|_next/static|_next/image|favicon.ico|uploads).*)"],
 };

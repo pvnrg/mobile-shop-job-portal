@@ -338,6 +338,40 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   sentAt: timestamp("sent_at").notNull().defaultNow(),
 });
 
+// ---------- Public site content ----------
+export const siteSettings = pgTable("site_settings", {
+  id: serial("id").primaryKey(),
+  heroHeadline: varchar("hero_headline", { length: 200 })
+    .notNull()
+    .default("Expert Mobile Repairs You Can Trust"),
+  heroSubheading: text("hero_subheading"),
+  heroCtaText: varchar("hero_cta_text", { length: 60 }),
+  heroCtaLink: varchar("hero_cta_link", { length: 300 }),
+  heroMediaType: varchar("hero_media_type", { length: 10 }),
+  heroMediaPath: text("hero_media_path"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const siteServices = pgTable("site_services", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 120 }).notNull(),
+  description: text("description"),
+  imagePath: text("image_path"),
+  displayOrder: integer("display_order").notNull().default(0),
+  active: integer("active").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const siteGalleryItems = pgTable("site_gallery_items", {
+  id: serial("id").primaryKey(),
+  mediaType: varchar("media_type", { length: 10 }).notNull(),
+  mediaPath: text("media_path").notNull(),
+  caption: varchar("caption", { length: 200 }),
+  displayOrder: integer("display_order").notNull().default(0),
+  active: integer("active").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // ---------- Relations ----------
 export const customersRelations = relations(customers, ({ many }) => ({
   jobs: many(jobs),

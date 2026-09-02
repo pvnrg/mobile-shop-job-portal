@@ -17,6 +17,9 @@ import type {
   parts,
   jobParts,
   partStockAdjustments,
+  siteSettings,
+  siteServices,
+  siteGalleryItems,
 } from "./schema";
 
 export type Customer = typeof customers.$inferSelect;
@@ -37,3 +40,6 @@ export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
 export type Part = typeof parts.$inferSelect;
 export type JobPart = typeof jobParts.$inferSelect;
 export type PartStockAdjustment = typeof partStockAdjustments.$inferSelect;
+export type SiteSettings = typeof siteSettings.$inferSelect;
+export type SiteService = typeof siteServices.$inferSelect;
+export type SiteGalleryItem = typeof siteGalleryItems.$inferSelect;
