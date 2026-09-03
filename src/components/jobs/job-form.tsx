@@ -57,8 +57,17 @@ type DeviceRow = {
   device?: Partial<JobDevice>;
 };
 
+// A simple incrementing counter, not crypto.randomUUID() — these ids only
+// need to be locally unique for React's `key` prop within one form session,
+// and randomUUID() is unavailable in insecure (plain HTTP, non-localhost)
+// contexts, which crashed this form in production.
+let rowIdCounter = 0;
+function nextRowId(): string {
+  rowIdCounter += 1;
+  return `row-${rowIdCounter}`;
+}
 function newRow(): DeviceRow {
-  return { rowId: crypto.randomUUID() };
+  return { rowId: nextRowId() };
 }
 
 export function JobForm({
@@ -85,7 +94,7 @@ export function JobForm({
   const [deviceRows, setDeviceRows] = useState<DeviceRow[]>(() =>
     defaultDevices && defaultDevices.length > 0
       ? defaultDevices.map((d) => ({
-          rowId: crypto.randomUUID(),
+          rowId: nextRowId(),
           existingId: d.id,
           device: d,
         }))
