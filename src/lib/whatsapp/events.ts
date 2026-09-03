@@ -30,37 +30,37 @@ export const notificationEventMeta: Record<
   job_received: {
     label: "Job Received",
     description: "Sent when a new repair job is logged for a customer.",
-    params: ["Customer Name", "Job Number", "Device", "Status"],
+    params: ["Customer Name", "Job Number", "Device", "Status", "Amount"],
   },
   job_diagnosing: {
     label: "Diagnosing",
     description: "Sent when a job moves to the diagnosing stage.",
-    params: ["Customer Name", "Job Number", "Device", "Status"],
+    params: ["Customer Name", "Job Number", "Device", "Status", "Amount"],
   },
   job_waiting_parts: {
     label: "Waiting for Parts",
     description: "Sent when a job is waiting on spare parts.",
-    params: ["Customer Name", "Job Number", "Device", "Status"],
+    params: ["Customer Name", "Job Number", "Device", "Status", "Amount"],
   },
   job_repairing: {
     label: "Repairing",
     description: "Sent when active repair work begins.",
-    params: ["Customer Name", "Job Number", "Device", "Status"],
+    params: ["Customer Name", "Job Number", "Device", "Status", "Amount"],
   },
   job_ready: {
     label: "Ready for Pickup",
     description: "Sent when the device is ready for the customer to collect.",
-    params: ["Customer Name", "Job Number", "Device", "Status"],
+    params: ["Customer Name", "Job Number", "Device", "Status", "Amount"],
   },
   job_delivered: {
     label: "Delivered",
     description: "Sent when the device has been handed back to the customer.",
-    params: ["Customer Name", "Job Number", "Device", "Status"],
+    params: ["Customer Name", "Job Number", "Device", "Status", "Amount"],
   },
   job_cancelled: {
     label: "Cancelled",
     description: "Sent when a job is cancelled.",
-    params: ["Customer Name", "Job Number", "Device", "Status"],
+    params: ["Customer Name", "Job Number", "Device", "Status", "Amount"],
   },
   invoice_created: {
     label: "Invoice Sent",

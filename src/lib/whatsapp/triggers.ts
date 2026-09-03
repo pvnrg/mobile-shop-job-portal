@@ -10,6 +10,14 @@ function deviceName(device: { brand: string | null; model: string | null; device
   return [device.brand, device.model].filter(Boolean).join(" ") || device.deviceType;
 }
 
+// The final cost (once set) takes priority over the estimate — a job
+// typically gets its final cost locked in around the "ready"/"delivered"
+// stage, so later status updates should reflect the settled amount rather
+// than the original estimate.
+function jobAmount(job: { estimatedCost: string | null; finalCost: string | null }) {
+  return formatCurrency(job.finalCost ?? job.estimatedCost ?? 0);
+}
+
 // Sent once when a job is created, naming every device dropped off in that
 // visit — avoids sending one WhatsApp message per device on creation.
 export async function notifyJobReceived(jobId: number) {
@@ -27,7 +35,13 @@ export async function notifyJobReceived(jobId: number) {
       customerId: job.customer.id,
       customerPhone: job.customer.phone,
       jobId: job.id,
-      bodyParams: [job.customer.name, job.jobNumber, device, jobStatusLabels.received],
+      bodyParams: [
+        job.customer.name,
+        job.jobNumber,
+        device,
+        jobStatusLabels.received,
+        jobAmount(job),
+      ],
     });
   } catch (err) {
     console.error("[whatsapp] notifyJobReceived failed", err);
@@ -53,6 +67,7 @@ export async function notifyJobStatusChange(jobDeviceId: number, status: JobStat
         device.job.jobNumber,
         deviceName(device),
         jobStatusLabels[status],
+        jobAmount(device.job),
       ],
     });
   } catch (err) {
