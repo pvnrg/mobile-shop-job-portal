@@ -57,7 +57,11 @@ type SendNotificationInput = {
   bodyParams: string[];
 };
 
-export async function sendNotification(input: SendNotificationInput) {
+export type SendNotificationResult = { success: true } | { success: false; error: string };
+
+export async function sendNotification(
+  input: SendNotificationInput
+): Promise<SendNotificationResult> {
   const settings = await getConfig();
 
   const template = await db.query.whatsappTemplates.findFirst({
@@ -79,6 +83,9 @@ export async function sendNotification(input: SendNotificationInput) {
     !phone;
 
   if (notConfigured) {
+    const errorMessage = !phone
+      ? "Customer phone number could not be normalized."
+      : "WhatsApp is not enabled or this event's template is not configured.";
     await logMessage({
       customerId: input.customerId,
       jobId: input.jobId ?? null,
@@ -88,11 +95,9 @@ export async function sendNotification(input: SendNotificationInput) {
       phone: phone ?? input.customerPhone,
       templateName: template?.templateName ?? null,
       status: "not_configured",
-      errorMessage: !phone
-        ? "Customer phone number could not be normalized."
-        : "WhatsApp is not enabled or this event's template is not configured.",
+      errorMessage,
     });
-    return;
+    return { success: false, error: errorMessage };
   }
 
   const result = await sendWhatsappTemplateMessage({
@@ -115,4 +120,6 @@ export async function sendNotification(input: SendNotificationInput) {
     providerMessageId: result.success ? result.messageId : undefined,
     errorMessage: result.success ? undefined : result.error,
   });
+
+  return result.success ? { success: true } : { success: false, error: result.error };
 }

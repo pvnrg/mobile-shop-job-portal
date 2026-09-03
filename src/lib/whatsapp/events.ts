@@ -9,6 +9,7 @@ export const notificationEvents = [
   "job_delivered",
   "job_cancelled",
   "invoice_created",
+  "outstanding_reminder",
 ] as const;
 
 export type NotificationEvent = (typeof notificationEvents)[number];
@@ -66,5 +67,11 @@ export const notificationEventMeta: Record<
     label: "Invoice Sent",
     description: "Sent when the shop shares a GST invoice with the customer.",
     params: ["Customer Name", "Invoice Number", "Total Amount", "Shop Name"],
+  },
+  outstanding_reminder: {
+    label: "Outstanding Balance Reminder",
+    description:
+      "Sent manually from a customer's page to remind them of their outstanding udhar balance.",
+    params: ["Customer Name", "Outstanding Amount", "Shop Name"],
   },
 };

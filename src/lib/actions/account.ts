@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { eq, and, inArray } from "drizzle-orm";
 import type { PaymentMethod } from "@/lib/status";
+import { notifyOutstandingReminder } from "@/lib/whatsapp/triggers";
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -79,4 +80,16 @@ export async function clearCustomerAccountAction(
   revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard/payments");
   revalidatePath("/dashboard/invoices");
+}
+
+export async function sendOutstandingReminderAction(
+  customerId: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await notifyOutstandingReminder(customerId);
+    return result.success ? { success: true } : { success: false, error: result.error };
+  } catch (err) {
+    console.error("[whatsapp] sendOutstandingReminderAction failed", err);
+    return { success: false, error: "Something went wrong sending the reminder." };
+  }
 }

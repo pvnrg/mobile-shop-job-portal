@@ -48,6 +48,7 @@ export const notificationEventEnum = pgEnum("notification_event", [
   "job_delivered",
   "job_cancelled",
   "invoice_created",
+  "outstanding_reminder",
 ]);
 
 export const whatsappMessageStatusEnum = pgEnum("whatsapp_message_status", [

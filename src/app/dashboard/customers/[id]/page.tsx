@@ -18,6 +18,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { jobStatusColors, jobStatusLabels } from "@/lib/status";
 import { ClearAccountButton } from "@/components/customers/clear-account-button";
 import { ClearInvoiceButton } from "@/components/customers/clear-invoice-button";
+import { SendOutstandingReminderButton } from "@/components/customers/send-outstanding-reminder-button";
 import { CheckCircle2, Mail, MapPin, Pencil, Phone, Plus } from "lucide-react";
 
 export default async function CustomerDetailPage({
@@ -94,6 +95,7 @@ export default async function CustomerDetailPage({
               <Pencil className="h-4 w-4" /> Edit
             </Link>
           </Button>
+          <SendOutstandingReminderButton customerId={customer.id} totalUdhar={totalUdhar} />
           <ClearAccountButton customerId={customer.id} totalUdhar={totalUdhar} />
           <Button asChild size="sm">
             <Link href={`/dashboard/jobs/new?customerId=${customer.id}`}>

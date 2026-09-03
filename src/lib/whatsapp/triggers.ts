@@ -1,9 +1,9 @@
 import { db } from "@/db";
-import { jobs, jobDevices, invoices } from "@/db/schema";
+import { jobs, jobDevices, invoices, customers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { jobStatusLabels, type JobStatus } from "@/lib/status";
 import { formatCurrency } from "@/lib/format";
-import { sendNotification } from "./notify";
+import { sendNotification, type SendNotificationResult } from "./notify";
 import { jobStatusToEvent } from "./events";
 
 function deviceName(device: { brand: string | null; model: string | null; deviceType: string }) {
@@ -73,6 +73,46 @@ export async function notifyJobStatusChange(jobDeviceId: number, status: JobStat
   } catch (err) {
     console.error("[whatsapp] notifyJobStatusChange failed", err);
   }
+}
+
+// Manually triggered from a customer's page (not an automatic status-change
+// event), so — unlike the triggers above — errors are returned rather than
+// swallowed, letting the UI tell the shop owner whether it actually sent.
+export async function notifyOutstandingReminder(
+  customerId: number
+): Promise<SendNotificationResult> {
+  const customer = await db.query.customers.findFirst({ where: eq(customers.id, customerId) });
+  if (!customer) {
+    return { success: false, error: "Customer not found." };
+  }
+
+  const customerInvoices = await db
+    .select()
+    .from(invoices)
+    .where(eq(invoices.customerId, customerId));
+
+  const outstanding = customerInvoices.reduce((sum, i) => {
+    if (i.status === "cancelled") return sum;
+    const due = Number(i.total) - Number(i.amountPaid);
+    return sum + Math.max(0, due);
+  }, 0);
+
+  if (outstanding <= 0) {
+    return { success: false, error: "This customer has no outstanding balance." };
+  }
+
+  const settings = await db.query.businessSettings.findFirst();
+
+  return sendNotification({
+    event: "outstanding_reminder",
+    customerId: customer.id,
+    customerPhone: customer.phone,
+    bodyParams: [
+      customer.name,
+      formatCurrency(outstanding),
+      settings?.businessName ?? "Mobile Repair Shop",
+    ],
+  });
 }
 
 export async function notifyInvoiceCreated(invoiceId: number) {
