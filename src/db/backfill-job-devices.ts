@@ -51,9 +51,13 @@ async function main() {
           accessories: job.accessories,
           passcode: job.passcode,
           status: job.status as (typeof jobDevices.$inferInsert)["status"],
-          deliveredAt: job.delivered_at,
-          createdAt: job.created_at,
-          updatedAt: job.updated_at,
+          // db.execute() returns raw driver values for timestamp columns
+          // (strings, not Date instances) since it bypasses Drizzle's
+          // schema-based row mapping — wrap explicitly so the insert's
+          // timestamp columns get real Date objects either way.
+          deliveredAt: job.delivered_at ? new Date(job.delivered_at) : null,
+          createdAt: new Date(job.created_at),
+          updatedAt: new Date(job.updated_at),
         })
         .returning({ id: jobDevices.id });
       devicesCreated++;
