@@ -16,7 +16,10 @@ export default async function EditJobPage({
   const jobId = Number(id);
   if (!Number.isFinite(jobId)) notFound();
 
-  const job = await db.query.jobs.findFirst({ where: eq(jobs.id, jobId) });
+  const job = await db.query.jobs.findFirst({
+    where: eq(jobs.id, jobId),
+    with: { devices: { orderBy: (jobDevices, { asc }) => [asc(jobDevices.id)] } },
+  });
   if (!job) notFound();
 
   const [customerList, technicians, deviceMasterData] = await Promise.all([
@@ -51,6 +54,7 @@ export default async function EditJobPage({
             technicians={technicians}
             deviceMasterData={deviceMasterData}
             defaultValues={job}
+            defaultDevices={job.devices}
             submitLabel="Save Changes"
           />
         </CardContent>

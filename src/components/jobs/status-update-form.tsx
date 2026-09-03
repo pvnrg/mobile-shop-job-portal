@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { updateJobStatusAction, type FormState } from "@/lib/actions/jobs";
+import { updateJobDeviceStatusAction, type FormState } from "@/lib/actions/jobs";
 import {
   jobStatusLabels,
   jobStatuses,
@@ -35,13 +35,13 @@ function SubmitButton() {
 }
 
 export function StatusUpdateForm({
-  jobId,
+  jobDeviceId,
   currentStatus,
 }: {
-  jobId: number;
+  jobDeviceId: number;
   currentStatus: JobStatus;
 }) {
-  const action = updateJobStatusAction.bind(null, jobId);
+  const action = updateJobDeviceStatusAction.bind(null, jobDeviceId);
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
   const [selectedStatus, setSelectedStatus] = useState<JobStatus>(currentStatus);
   const [prevCurrentStatus, setPrevCurrentStatus] = useState(currentStatus);

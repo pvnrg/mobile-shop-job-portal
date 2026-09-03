@@ -17,12 +17,14 @@ export function DevicePicker({
   defaultDeviceType,
   defaultBrand,
   defaultModel,
+  namePrefix = "",
   errors,
 }: {
   masterData: DeviceMasterData;
   defaultDeviceType?: string;
   defaultBrand?: string;
   defaultModel?: string;
+  namePrefix?: string;
   errors?: {
     deviceType?: string[];
     brand?: string[];
@@ -79,13 +81,13 @@ export function DevicePicker({
   return (
     <div className="grid gap-4 sm:grid-cols-3">
       <div className="space-y-2">
-        <Label htmlFor="deviceType">Device Type *</Label>
+        <Label htmlFor={`${namePrefix}deviceType`}>Device Type *</Label>
         <Select
-          name="deviceType"
+          name={`${namePrefix}deviceType`}
           value={deviceTypeName || undefined}
           onValueChange={(value) => setDeviceTypeName(value)}
         >
-          <SelectTrigger id="deviceType" className="w-full">
+          <SelectTrigger id={`${namePrefix}deviceType`} className="w-full">
             <SelectValue placeholder="Select type..." />
           </SelectTrigger>
           <SelectContent>
@@ -102,9 +104,9 @@ export function DevicePicker({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="brand">Brand</Label>
+        <Label htmlFor={`${namePrefix}brand`}>Brand</Label>
         <ValueCombobox
-          name="brand"
+          name={`${namePrefix}brand`}
           value={brandName}
           onChange={setBrandName}
           options={brandOptions}
@@ -114,9 +116,9 @@ export function DevicePicker({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="model">Model</Label>
+        <Label htmlFor={`${namePrefix}model`}>Model</Label>
         <ValueCombobox
-          name="model"
+          name={`${namePrefix}model`}
           value={modelName}
           onChange={setModelName}
           options={modelOptions}

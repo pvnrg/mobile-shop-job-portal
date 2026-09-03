@@ -24,6 +24,7 @@ async function getConfig() {
 async function logMessage(params: {
   customerId: number | null;
   jobId: number | null;
+  jobDeviceId: number | null;
   invoiceId: number | null;
   event: NotificationEvent;
   phone: string;
@@ -35,6 +36,7 @@ async function logMessage(params: {
   await db.insert(whatsappMessages).values({
     customerId: params.customerId,
     jobId: params.jobId,
+    jobDeviceId: params.jobDeviceId,
     invoiceId: params.invoiceId,
     event: params.event,
     phone: params.phone,
@@ -50,6 +52,7 @@ type SendNotificationInput = {
   customerId: number;
   customerPhone: string;
   jobId?: number | null;
+  jobDeviceId?: number | null;
   invoiceId?: number | null;
   bodyParams: string[];
 };
@@ -79,6 +82,7 @@ export async function sendNotification(input: SendNotificationInput) {
     await logMessage({
       customerId: input.customerId,
       jobId: input.jobId ?? null,
+      jobDeviceId: input.jobDeviceId ?? null,
       invoiceId: input.invoiceId ?? null,
       event: input.event,
       phone: phone ?? input.customerPhone,
@@ -102,6 +106,7 @@ export async function sendNotification(input: SendNotificationInput) {
   await logMessage({
     customerId: input.customerId,
     jobId: input.jobId ?? null,
+    jobDeviceId: input.jobDeviceId ?? null,
     invoiceId: input.invoiceId ?? null,
     event: input.event,
     phone,

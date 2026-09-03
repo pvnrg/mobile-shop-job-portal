@@ -21,18 +21,21 @@ export default async function NewInvoicePage({
   let defaultItems: { description: string; hsnSac: string; quantity: number; unitPrice: number; taxRatePercent: number }[] | undefined;
 
   if (jobId) {
-    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, Number(jobId)) });
-    if (job) {
+    const job = await db.query.jobs.findFirst({
+      where: eq(jobs.id, Number(jobId)),
+      with: { devices: { orderBy: (jobDevices, { asc }) => [asc(jobDevices.id)] } },
+    });
+    if (job && job.devices.length > 0) {
       defaultCustomerId = job.customerId;
-      defaultItems = [
-        {
-          description: `Repair service — ${job.brand ?? ""} ${job.model ?? ""} (${job.jobNumber})`.trim(),
-          hsnSac: "9987",
-          quantity: 1,
-          unitPrice: job.estimatedCost ? Number(job.estimatedCost) : 0,
-          taxRatePercent: 18,
-        },
-      ];
+      defaultItems = job.devices.map((device, index) => ({
+        description: `Repair service — ${device.brand ?? ""} ${device.model ?? ""} (${job.jobNumber})`.trim(),
+        hsnSac: "9987",
+        quantity: 1,
+        // estimatedCost is one total for the whole job — prefill the first
+        // line item with it and leave the rest for the owner to redistribute.
+        unitPrice: index === 0 && job.estimatedCost ? Number(job.estimatedCost) : 0,
+        taxRatePercent: 18,
+      }));
     }
   }
 

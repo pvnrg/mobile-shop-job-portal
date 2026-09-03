@@ -1,6 +1,7 @@
 import type {
   customers,
   jobs,
+  jobDevices,
   jobStatusHistory,
   media,
   invoices,
@@ -24,6 +25,7 @@ import type {
 
 export type Customer = typeof customers.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
+export type JobDevice = typeof jobDevices.$inferSelect;
 export type JobStatusHistoryEntry = typeof jobStatusHistory.$inferSelect;
 export type Media = typeof media.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;

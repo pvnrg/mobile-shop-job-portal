@@ -88,14 +88,6 @@ export const jobs = pgTable("jobs", {
   customerId: integer("customer_id")
     .notNull()
     .references(() => customers.id, { onDelete: "restrict" }),
-  deviceType: varchar("device_type", { length: 60 }).notNull(),
-  brand: varchar("brand", { length: 60 }),
-  model: varchar("model", { length: 100 }),
-  serialNumber: varchar("serial_number", { length: 100 }),
-  issueDescription: text("issue_description").notNull(),
-  accessories: text("accessories"),
-  passcode: varchar("passcode", { length: 60 }),
-  status: jobStatusEnum("status").notNull().default("received"),
   priority: varchar("priority", { length: 20 }).notNull().default("normal"),
   estimatedCost: numeric("estimated_cost", { precision: 10, scale: 2 }),
   finalCost: numeric("final_cost", { precision: 10, scale: 2 }),
@@ -106,18 +98,39 @@ export const jobs = pgTable("jobs", {
     onDelete: "set null",
   }),
   promisedAt: timestamp("promised_at"),
-  deliveredAt: timestamp("delivered_at"),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// ---------- Job status history (audit trail) ----------
+// ---------- Devices within a job (a job can cover multiple devices) ----------
+export const jobDevices = pgTable("job_devices", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  deviceType: varchar("device_type", { length: 60 }).notNull(),
+  brand: varchar("brand", { length: 60 }),
+  model: varchar("model", { length: 100 }),
+  serialNumber: varchar("serial_number", { length: 100 }),
+  issueDescription: text("issue_description").notNull(),
+  accessories: text("accessories"),
+  passcode: varchar("passcode", { length: 60 }),
+  status: jobStatusEnum("status").notNull().default("received"),
+  deliveredAt: timestamp("delivered_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ---------- Job status history (audit trail, per device) ----------
 export const jobStatusHistory = pgTable("job_status_history", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id")
     .notNull()
     .references(() => jobs.id, { onDelete: "cascade" }),
+  jobDeviceId: integer("job_device_id")
+    .notNull()
+    .references(() => jobDevices.id, { onDelete: "cascade" }),
   status: jobStatusEnum("status").notNull(),
   note: text("note"),
   changedBy: integer("changed_by").references(() => users.id, {
@@ -328,6 +341,7 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   id: serial("id").primaryKey(),
   customerId: integer("customer_id").references(() => customers.id, { onDelete: "set null" }),
   jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
+  jobDeviceId: integer("job_device_id").references(() => jobDevices.id, { onDelete: "set null" }),
   invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
   event: notificationEventEnum("event").notNull(),
   phone: varchar("phone", { length: 30 }).notNull(),
@@ -383,6 +397,7 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   customer: one(customers, { fields: [jobs.customerId], references: [customers.id] }),
   assignee: one(users, { fields: [jobs.assignedTo], references: [users.id] }),
   creator: one(users, { fields: [jobs.createdBy], references: [users.id] }),
+  devices: many(jobDevices),
   statusHistory: many(jobStatusHistory),
   media: many(media),
   invoices: many(invoices),
@@ -390,8 +405,15 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   partsUsed: many(jobParts),
 }));
 
+export const jobDevicesRelations = relations(jobDevices, ({ one, many }) => ({
+  job: one(jobs, { fields: [jobDevices.jobId], references: [jobs.id] }),
+  statusHistory: many(jobStatusHistory),
+  whatsappMessages: many(whatsappMessages),
+}));
+
 export const jobStatusHistoryRelations = relations(jobStatusHistory, ({ one }) => ({
   job: one(jobs, { fields: [jobStatusHistory.jobId], references: [jobs.id] }),
+  jobDevice: one(jobDevices, { fields: [jobStatusHistory.jobDeviceId], references: [jobDevices.id] }),
   changedByUser: one(users, { fields: [jobStatusHistory.changedBy], references: [users.id] }),
 }));
 
@@ -451,6 +473,7 @@ export const deviceModelsRelations = relations(deviceModels, ({ one }) => ({
 export const whatsappMessagesRelations = relations(whatsappMessages, ({ one }) => ({
   customer: one(customers, { fields: [whatsappMessages.customerId], references: [customers.id] }),
   job: one(jobs, { fields: [whatsappMessages.jobId], references: [jobs.id] }),
+  jobDevice: one(jobDevices, { fields: [whatsappMessages.jobDeviceId], references: [jobDevices.id] }),
   invoice: one(invoices, { fields: [whatsappMessages.invoiceId], references: [invoices.id] }),
 }));
 

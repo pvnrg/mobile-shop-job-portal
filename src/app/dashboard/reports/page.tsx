@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/db";
-import { jobs, invoices, payments, jobParts, users } from "@/db/schema";
+import { jobs, jobDevices, invoices, payments, jobParts, users } from "@/db/schema";
 import { and, eq, gte, lte, sql, ne } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,21 +71,21 @@ export default async function ReportsPage({
       .orderBy(sql`date_trunc('day', ${payments.paidAt})`),
     db
       .select({ count: sql<number>`count(*)::int` })
-      .from(jobs)
-      .where(and(gte(jobs.deliveredAt, start), lte(jobs.deliveredAt, end))),
+      .from(jobDevices)
+      .where(and(gte(jobDevices.deliveredAt, start), lte(jobDevices.deliveredAt, end))),
     db
-      .select({ status: jobs.status, count: sql<number>`count(*)::int` })
-      .from(jobs)
-      .groupBy(jobs.status),
+      .select({ status: jobDevices.status, count: sql<number>`count(*)::int` })
+      .from(jobDevices)
+      .groupBy(jobDevices.status),
     db
       .select({
-        brand: jobs.brand,
-        deviceType: jobs.deviceType,
+        brand: jobDevices.brand,
+        deviceType: jobDevices.deviceType,
         count: sql<number>`count(*)::int`,
       })
-      .from(jobs)
-      .where(and(gte(jobs.createdAt, start), lte(jobs.createdAt, end)))
-      .groupBy(jobs.brand, jobs.deviceType)
+      .from(jobDevices)
+      .where(and(gte(jobDevices.createdAt, start), lte(jobDevices.createdAt, end)))
+      .groupBy(jobDevices.brand, jobDevices.deviceType)
       .orderBy(sql`count(*) desc`)
       .limit(8),
     db
@@ -94,10 +94,15 @@ export default async function ReportsPage({
         technicianName: users.name,
         count: sql<number>`count(*)::int`,
       })
-      .from(jobs)
+      .from(jobDevices)
+      .innerJoin(jobs, eq(jobDevices.jobId, jobs.id))
       .leftJoin(users, eq(jobs.assignedTo, users.id))
       .where(
-        and(gte(jobs.deliveredAt, start), lte(jobs.deliveredAt, end), sql`${jobs.assignedTo} is not null`)
+        and(
+          gte(jobDevices.deliveredAt, start),
+          lte(jobDevices.deliveredAt, end),
+          sql`${jobs.assignedTo} is not null`
+        )
       )
       .groupBy(jobs.assignedTo, users.name)
       .orderBy(sql`count(*) desc`),
@@ -267,7 +272,7 @@ export default async function ReportsPage({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Top Devices Repaired</CardTitle>
-            <CardDescription>Jobs received in this period</CardDescription>
+            <CardDescription>Devices received in this period</CardDescription>
           </CardHeader>
           <CardContent>
             {topDevices.length === 0 ? (

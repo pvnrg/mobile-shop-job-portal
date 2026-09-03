@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/db";
-import { jobs, customers } from "@/db/schema";
-import { desc, eq, and, ilike, or, sql } from "drizzle-orm";
+import { jobs, customers, jobDevices } from "@/db/schema";
+import { desc, eq, and, ilike, or, sql, inArray, asc } from "drizzle-orm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import { Plus, Search, Wrench } from "lucide-react";
 import { formatDate } from "@/lib/format";
 import { jobStatusColors, jobStatusLabels, jobStatuses, type JobStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
+import type { JobDevice } from "@/db/types";
 
 export default async function JobsPage({
   searchParams,
@@ -28,14 +29,15 @@ export default async function JobsPage({
   const statusFilter = jobStatuses.includes(status as JobStatus) ? (status as JobStatus) : undefined;
 
   const conditions = [
-    statusFilter ? eq(jobs.status, statusFilter) : undefined,
+    statusFilter
+      ? sql`exists (select 1 from job_devices jd where jd.job_id = ${jobs.id} and jd.status = ${statusFilter})`
+      : undefined,
     q
       ? or(
           ilike(jobs.jobNumber, `%${q}%`),
-          ilike(jobs.brand, `%${q}%`),
-          ilike(jobs.model, `%${q}%`),
           ilike(customers.name, `%${q}%`),
-          ilike(customers.phone, `%${q}%`)
+          ilike(customers.phone, `%${q}%`),
+          sql`exists (select 1 from job_devices jd where jd.job_id = ${jobs.id} and (jd.brand ilike ${`%${q}%`} or jd.model ilike ${`%${q}%`}))`
         )
       : undefined,
   ].filter(Boolean);
@@ -51,6 +53,21 @@ export default async function JobsPage({
     .where(conditions.length ? and(...conditions) : sql`true`)
     .orderBy(desc(jobs.createdAt))
     .limit(200);
+
+  const jobIds = rows.map((r) => r.job.id);
+  const devicesForJobs =
+    jobIds.length > 0
+      ? await db
+          .select()
+          .from(jobDevices)
+          .where(inArray(jobDevices.jobId, jobIds))
+          .orderBy(asc(jobDevices.id))
+      : [];
+  const devicesByJob = new Map<number, JobDevice[]>();
+  for (const d of devicesForJobs) {
+    if (!devicesByJob.has(d.jobId)) devicesByJob.set(d.jobId, []);
+    devicesByJob.get(d.jobId)!.push(d);
+  }
 
   return (
     <div className="space-y-6">
@@ -132,34 +149,51 @@ export default async function JobsPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map(({ job, customerName, customerPhone }) => (
-                    <TableRow key={job.id}>
-                      <TableCell>
-                        <Link
-                          href={`/dashboard/jobs/${job.id}`}
-                          className="font-medium hover:underline"
-                        >
-                          {job.jobNumber}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        {customerName}
-                        <div className="text-xs text-muted-foreground">{customerPhone}</div>
-                      </TableCell>
-                      <TableCell>
-                        {job.brand} {job.model}
-                        <div className="text-xs text-muted-foreground">{job.deviceType}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={jobStatusColors[job.status]}>
-                          {jobStatusLabels[job.status]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
-                        {formatDate(job.createdAt)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {rows.map(({ job, customerName, customerPhone }) => {
+                    const devices = devicesByJob.get(job.id) ?? [];
+                    const first = devices[0];
+                    return (
+                      <TableRow key={job.id}>
+                        <TableCell>
+                          <Link
+                            href={`/dashboard/jobs/${job.id}`}
+                            className="font-medium hover:underline"
+                          >
+                            {job.jobNumber}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          {customerName}
+                          <div className="text-xs text-muted-foreground">{customerPhone}</div>
+                        </TableCell>
+                        <TableCell>
+                          {first ? (
+                            <>
+                              {first.brand} {first.model}
+                              <div className="text-xs text-muted-foreground">
+                                {first.deviceType}
+                                {devices.length > 1 ? ` +${devices.length - 1} more` : ""}
+                              </div>
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {devices.map((d) => (
+                              <Badge key={d.id} variant="outline" className={jobStatusColors[d.status]}>
+                                {jobStatusLabels[d.status]}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                          {formatDate(job.createdAt)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

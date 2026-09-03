@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,11 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { CustomerCombobox, type CustomerOption } from "@/components/customers/customer-combobox";
 import { DevicePicker } from "@/components/devices/device-picker";
 import type { FormState } from "@/lib/actions/jobs";
-import type { Job } from "@/db/types";
+import type { Job, JobDevice } from "@/db/types";
 import type { DeviceMasterData } from "@/lib/device-master";
 
 function SubmitButton({ label }: { label: string }) {
@@ -30,12 +30,23 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
+type DeviceRow = {
+  rowId: string;
+  existingId?: number;
+  device?: Partial<JobDevice>;
+};
+
+function newRow(): DeviceRow {
+  return { rowId: crypto.randomUUID() };
+}
+
 export function JobForm({
   action,
   customers,
   technicians,
   deviceMasterData,
   defaultValues,
+  defaultDevices,
   defaultCustomerId,
   submitLabel = "Create Job",
 }: {
@@ -44,10 +55,29 @@ export function JobForm({
   technicians: { id: number; name: string }[];
   deviceMasterData: DeviceMasterData;
   defaultValues?: Partial<Job>;
+  defaultDevices?: JobDevice[];
   defaultCustomerId?: number;
   submitLabel?: string;
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
+
+  const [deviceRows, setDeviceRows] = useState<DeviceRow[]>(() =>
+    defaultDevices && defaultDevices.length > 0
+      ? defaultDevices.map((d) => ({
+          rowId: crypto.randomUUID(),
+          existingId: d.id,
+          device: d,
+        }))
+      : [newRow()]
+  );
+
+  function addDevice() {
+    setDeviceRows((rows) => [...rows, newRow()]);
+  }
+
+  function removeDevice(rowId: string) {
+    setDeviceRows((rows) => (rows.length > 1 ? rows.filter((r) => r.rowId !== rowId) : rows));
+  }
 
   const promisedAtDefault = defaultValues?.promisedAt
     ? new Date(defaultValues.promisedAt).toISOString().slice(0, 16)
@@ -67,48 +97,87 @@ export function JobForm({
         )}
       </div>
 
-      <DevicePicker
-        masterData={deviceMasterData}
-        defaultDeviceType={defaultValues?.deviceType}
-        defaultBrand={defaultValues?.brand ?? ""}
-        defaultModel={defaultValues?.model ?? ""}
-        errors={state.fieldErrors}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="serialNumber">Serial / IMEI Number</Label>
-          <Input id="serialNumber" name="serialNumber" defaultValue={defaultValues?.serialNumber ?? ""} />
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label className="text-base">Devices *</Label>
+          <Button type="button" variant="outline" size="sm" onClick={addDevice}>
+            <Plus className="h-4 w-4" /> Add Device
+          </Button>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="passcode">Device Passcode (optional)</Label>
-          <Input id="passcode" name="passcode" defaultValue={defaultValues?.passcode ?? ""} />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="issueDescription">Issue Description *</Label>
-        <Textarea
-          id="issueDescription"
-          name="issueDescription"
-          rows={3}
-          placeholder="Describe the reported issue..."
-          defaultValue={defaultValues?.issueDescription}
-          required
-        />
-        {state.fieldErrors?.issueDescription && (
-          <p className="text-xs text-destructive">{state.fieldErrors.issueDescription[0]}</p>
+        {state.fieldErrors?.devices && (
+          <p className="text-xs text-destructive">{state.fieldErrors.devices[0]}</p>
         )}
-      </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="accessories">Accessories Received</Label>
-        <Input
-          id="accessories"
-          name="accessories"
-          placeholder="Charger, case, SIM card..."
-          defaultValue={defaultValues?.accessories ?? ""}
-        />
+        {deviceRows.map((row, index) => (
+          <div key={row.rowId} className="space-y-4 rounded-lg border p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-muted-foreground">Device {index + 1}</h3>
+              {deviceRows.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeDevice(row.rowId)}
+                >
+                  <X className="h-4 w-4" /> Remove
+                </Button>
+              )}
+            </div>
+
+            {row.existingId && (
+              <input type="hidden" name={`devices[${index}].id`} value={row.existingId} />
+            )}
+
+            <DevicePicker
+              masterData={deviceMasterData}
+              namePrefix={`devices[${index}].`}
+              defaultDeviceType={row.device?.deviceType}
+              defaultBrand={row.device?.brand ?? ""}
+              defaultModel={row.device?.model ?? ""}
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor={`devices[${index}].serialNumber`}>Serial / IMEI Number</Label>
+                <Input
+                  id={`devices[${index}].serialNumber`}
+                  name={`devices[${index}].serialNumber`}
+                  defaultValue={row.device?.serialNumber ?? ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`devices[${index}].passcode`}>Device Passcode (optional)</Label>
+                <Input
+                  id={`devices[${index}].passcode`}
+                  name={`devices[${index}].passcode`}
+                  defaultValue={row.device?.passcode ?? ""}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor={`devices[${index}].issueDescription`}>Issue Description *</Label>
+              <Textarea
+                id={`devices[${index}].issueDescription`}
+                name={`devices[${index}].issueDescription`}
+                rows={3}
+                placeholder="Describe the reported issue..."
+                defaultValue={row.device?.issueDescription}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor={`devices[${index}].accessories`}>Accessories Received</Label>
+              <Input
+                id={`devices[${index}].accessories`}
+                name={`devices[${index}].accessories`}
+                placeholder="Charger, case, SIM card..."
+                defaultValue={row.device?.accessories ?? ""}
+              />
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">

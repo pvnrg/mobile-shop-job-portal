@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/db";
 import { jobs, invoices, payments, customers, parts } from "@/db/schema";
-import { desc, eq, gte, sql, ne, and } from "drizzle-orm";
+import { eq, gte, sql, and } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export default async function DashboardPage() {
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(jobs)
-      .where(ne(jobs.status, "delivered")),
+      .where(sql`exists (select 1 from job_devices jd where jd.job_id = ${jobs.id} and jd.status <> 'delivered')`),
     db.select({ count: sql<number>`count(*)::int` }).from(customers),
     db
       .select({ total: sql<string>`coalesce(sum(${payments.amount}), 0)` })
@@ -39,12 +39,14 @@ export default async function DashboardPage() {
       .select({ count: sql<number>`count(*)::int` })
       .from(parts)
       .where(and(eq(parts.active, 1), sql`${parts.quantityInStock} <= ${parts.lowStockThreshold}`)),
-    db
-      .select({ job: jobs, customerName: customers.name })
-      .from(jobs)
-      .innerJoin(customers, eq(jobs.customerId, customers.id))
-      .orderBy(desc(jobs.createdAt))
-      .limit(6),
+    db.query.jobs.findMany({
+      with: {
+        customer: { columns: { name: true } },
+        devices: { orderBy: (jobDevices, { asc }) => [asc(jobDevices.id)] },
+      },
+      orderBy: (jobs, { desc }) => [desc(jobs.createdAt)],
+      limit: 6,
+    }),
   ]);
 
   const stats = [
@@ -129,28 +131,37 @@ export default async function DashboardPage() {
               </Link>
             </p>
           ) : (
-            recentJobs.map(({ job, customerName }) => (
-              <Link
-                key={job.id}
-                href={`/dashboard/jobs/${job.id}`}
-                className="flex items-center justify-between rounded-lg border p-3 text-sm transition-colors hover:bg-muted/40"
-              >
-                <div>
-                  <div className="font-medium">{job.jobNumber}</div>
-                  <div className="text-muted-foreground">
-                    {customerName} · {job.brand} {job.model}
+            recentJobs.map((job) => {
+              const first = job.devices[0];
+              return (
+                <Link
+                  key={job.id}
+                  href={`/dashboard/jobs/${job.id}`}
+                  className="flex items-center justify-between rounded-lg border p-3 text-sm transition-colors hover:bg-muted/40"
+                >
+                  <div>
+                    <div className="font-medium">{job.jobNumber}</div>
+                    <div className="text-muted-foreground">
+                      {job.customer.name}
+                      {first ? ` · ${first.brand} ${first.model}` : ""}
+                      {job.devices.length > 1 ? ` +${job.devices.length - 1} more` : ""}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="hidden text-muted-foreground sm:inline">
-                    {formatDate(job.createdAt)}
-                  </span>
-                  <Badge variant="outline" className={jobStatusColors[job.status]}>
-                    {jobStatusLabels[job.status]}
-                  </Badge>
-                </div>
-              </Link>
-            ))
+                  <div className="flex items-center gap-3">
+                    <span className="hidden text-muted-foreground sm:inline">
+                      {formatDate(job.createdAt)}
+                    </span>
+                    <div className="flex flex-wrap justify-end gap-1">
+                      {job.devices.map((d) => (
+                        <Badge key={d.id} variant="outline" className={jobStatusColors[d.status]}>
+                          {jobStatusLabels[d.status]}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })
           )}
         </CardContent>
       </Card>

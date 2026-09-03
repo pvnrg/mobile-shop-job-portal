@@ -1,30 +1,40 @@
 "use server";
 
 import { db } from "@/db";
-import { jobs, jobStatusHistory, invoices, payments } from "@/db/schema";
-import { jobSchema, jobStatusUpdateSchema } from "@/lib/validation/job";
+import { jobs, jobDevices, jobStatusHistory, invoices, payments } from "@/db/schema";
+import { jobSchema, jobDeviceStatusUpdateSchema } from "@/lib/validation/job";
 import { generateJobNumber } from "@/lib/numbering";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq, and, ne } from "drizzle-orm";
-import { notifyJobStatusChange } from "@/lib/whatsapp/triggers";
+import { eq, and, ne, inArray } from "drizzle-orm";
+import { notifyJobReceived, notifyJobStatusChange } from "@/lib/whatsapp/triggers";
 
 export type FormState = {
   error?: string;
   fieldErrors?: Record<string, string[]>;
 };
 
+function parseDevicesFromFormData(formData: FormData) {
+  const pattern = /^devices\[(\d+)\]\.(\w+)$/;
+  const byIndex = new Map<number, Record<string, string>>();
+  for (const [key, value] of formData.entries()) {
+    const match = key.match(pattern);
+    if (!match) continue;
+    const index = Number(match[1]);
+    const field = match[2];
+    if (!byIndex.has(index)) byIndex.set(index, {});
+    byIndex.get(index)![field] = typeof value === "string" ? value : "";
+  }
+  return Array.from(byIndex.keys())
+    .sort((a, b) => a - b)
+    .map((i) => byIndex.get(i)!);
+}
+
 function parseForm(formData: FormData) {
   return jobSchema.safeParse({
     customerId: formData.get("customerId"),
-    deviceType: formData.get("deviceType"),
-    brand: formData.get("brand"),
-    model: formData.get("model"),
-    serialNumber: formData.get("serialNumber"),
-    issueDescription: formData.get("issueDescription"),
-    accessories: formData.get("accessories"),
-    passcode: formData.get("passcode"),
+    devices: parseDevicesFromFormData(formData),
     priority: formData.get("priority") || "normal",
     estimatedCost: formData.get("estimatedCost") ?? "",
     assignedTo: formData.get("assignedTo") ?? "",
@@ -54,13 +64,6 @@ export async function createJobAction(
         .values({
           jobNumber,
           customerId: parsed.data.customerId,
-          deviceType: parsed.data.deviceType,
-          brand: parsed.data.brand || null,
-          model: parsed.data.model || null,
-          serialNumber: parsed.data.serialNumber || null,
-          issueDescription: parsed.data.issueDescription,
-          accessories: parsed.data.accessories || null,
-          passcode: parsed.data.passcode || null,
           priority: parsed.data.priority,
           estimatedCost:
             parsed.data.estimatedCost === "" || parsed.data.estimatedCost === undefined
@@ -90,25 +93,44 @@ export async function createJobAction(
     return { error: "Could not generate a unique job number. Please try again." };
   }
 
-  await db.insert(jobStatusHistory).values({
-    jobId,
-    status: "received",
-    note: "Job created",
-    changedBy: userId,
+  await db.transaction(async (tx) => {
+    for (const device of parsed.data.devices) {
+      const [inserted] = await tx
+        .insert(jobDevices)
+        .values({
+          jobId: jobId!,
+          deviceType: device.deviceType,
+          brand: device.brand || null,
+          model: device.model || null,
+          serialNumber: device.serialNumber || null,
+          issueDescription: device.issueDescription,
+          accessories: device.accessories || null,
+          passcode: device.passcode || null,
+        })
+        .returning({ id: jobDevices.id });
+
+      await tx.insert(jobStatusHistory).values({
+        jobId: jobId!,
+        jobDeviceId: inserted.id,
+        status: "received",
+        note: "Job created",
+        changedBy: userId,
+      });
+    }
   });
 
-  await notifyJobStatusChange(jobId, "received");
+  await notifyJobReceived(jobId);
 
   revalidatePath("/dashboard/jobs");
   redirect(`/dashboard/jobs/${jobId}`);
 }
 
-export async function updateJobStatusAction(
-  jobId: number,
+export async function updateJobDeviceStatusAction(
+  jobDeviceId: number,
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const parsed = jobStatusUpdateSchema.safeParse({
+  const parsed = jobDeviceStatusUpdateSchema.safeParse({
     status: formData.get("status"),
     note: formData.get("note"),
     amountPaid: formData.get("amountPaid") ?? "",
@@ -127,26 +149,31 @@ export async function updateJobStatusAction(
     return { fieldErrors: { paymentMethod: ["Select a payment method."] } };
   }
 
-  const job = await db.query.jobs.findFirst({ where: eq(jobs.id, jobId) });
-  if (!job) {
-    return { error: "Job not found." };
+  const device = await db.query.jobDevices.findFirst({
+    where: eq(jobDevices.id, jobDeviceId),
+    with: { job: true },
+  });
+  if (!device) {
+    return { error: "Device not found." };
   }
+  const jobId = device.jobId;
 
   const session = await auth();
   const userId = session?.user?.id ? Number(session.user.id) : null;
 
   await db.transaction(async (tx) => {
     await tx
-      .update(jobs)
+      .update(jobDevices)
       .set({
         status: parsed.data.status,
         updatedAt: new Date(),
         deliveredAt: parsed.data.status === "delivered" ? new Date() : undefined,
       })
-      .where(eq(jobs.id, jobId));
+      .where(eq(jobDevices.id, jobDeviceId));
 
     await tx.insert(jobStatusHistory).values({
       jobId,
+      jobDeviceId,
       status: parsed.data.status,
       note: parsed.data.note || null,
       changedBy: userId,
@@ -160,10 +187,10 @@ export async function updateJobStatusAction(
       await tx.insert(payments).values({
         invoiceId: invoice?.id ?? null,
         jobId,
-        customerId: job.customerId,
+        customerId: device.job.customerId,
         amount: String(amountPaidNow),
         method: parsed.data.paymentMethod!,
-        notes: `Recorded on marking job as ${parsed.data.status}`,
+        notes: `Recorded on marking device as ${parsed.data.status}`,
         recordedBy: userId,
       });
 
@@ -178,7 +205,7 @@ export async function updateJobStatusAction(
     }
   });
 
-  await notifyJobStatusChange(jobId, parsed.data.status);
+  await notifyJobStatusChange(jobDeviceId, parsed.data.status);
 
   revalidatePath(`/dashboard/jobs/${jobId}`);
   revalidatePath("/dashboard/jobs");
@@ -200,30 +227,87 @@ export async function updateJobDetailsAction(
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
-  await db
-    .update(jobs)
-    .set({
-      deviceType: parsed.data.deviceType,
-      brand: parsed.data.brand || null,
-      model: parsed.data.model || null,
-      serialNumber: parsed.data.serialNumber || null,
-      issueDescription: parsed.data.issueDescription,
-      accessories: parsed.data.accessories || null,
-      passcode: parsed.data.passcode || null,
-      priority: parsed.data.priority,
-      estimatedCost:
-        parsed.data.estimatedCost === "" || parsed.data.estimatedCost === undefined
-          ? null
-          : String(parsed.data.estimatedCost),
-      assignedTo:
-        parsed.data.assignedTo === "" || parsed.data.assignedTo === undefined
-          ? null
-          : Number(parsed.data.assignedTo),
-      promisedAt: parsed.data.promisedAt ? new Date(parsed.data.promisedAt) : null,
-      notes: parsed.data.notes || null,
-      updatedAt: new Date(),
-    })
-    .where(eq(jobs.id, jobId));
+  const session = await auth();
+  const userId = session?.user?.id ? Number(session.user.id) : null;
+
+  const existingDevices = await db
+    .select({ id: jobDevices.id })
+    .from(jobDevices)
+    .where(eq(jobDevices.jobId, jobId));
+  const existingIds = new Set(existingDevices.map((d) => d.id));
+  const submittedIds = new Set(
+    parsed.data.devices.filter((d) => d.id !== undefined).map((d) => d.id!)
+  );
+  const idsToDelete = [...existingIds].filter((id) => !submittedIds.has(id));
+  const newlyInsertedIds: number[] = [];
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(jobs)
+      .set({
+        customerId: parsed.data.customerId,
+        priority: parsed.data.priority,
+        estimatedCost:
+          parsed.data.estimatedCost === "" || parsed.data.estimatedCost === undefined
+            ? null
+            : String(parsed.data.estimatedCost),
+        assignedTo:
+          parsed.data.assignedTo === "" || parsed.data.assignedTo === undefined
+            ? null
+            : Number(parsed.data.assignedTo),
+        promisedAt: parsed.data.promisedAt ? new Date(parsed.data.promisedAt) : null,
+        notes: parsed.data.notes || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(jobs.id, jobId));
+
+    if (idsToDelete.length > 0) {
+      await tx.delete(jobDevices).where(inArray(jobDevices.id, idsToDelete));
+    }
+
+    for (const device of parsed.data.devices) {
+      if (device.id !== undefined && existingIds.has(device.id)) {
+        await tx
+          .update(jobDevices)
+          .set({
+            deviceType: device.deviceType,
+            brand: device.brand || null,
+            model: device.model || null,
+            serialNumber: device.serialNumber || null,
+            issueDescription: device.issueDescription,
+            accessories: device.accessories || null,
+            passcode: device.passcode || null,
+            updatedAt: new Date(),
+          })
+          .where(eq(jobDevices.id, device.id));
+      } else {
+        const [inserted] = await tx
+          .insert(jobDevices)
+          .values({
+            jobId,
+            deviceType: device.deviceType,
+            brand: device.brand || null,
+            model: device.model || null,
+            serialNumber: device.serialNumber || null,
+            issueDescription: device.issueDescription,
+            accessories: device.accessories || null,
+            passcode: device.passcode || null,
+          })
+          .returning({ id: jobDevices.id });
+
+        await tx.insert(jobStatusHistory).values({
+          jobId,
+          jobDeviceId: inserted.id,
+          status: "received",
+          note: "Device added to job",
+          changedBy: userId,
+        });
+        newlyInsertedIds.push(inserted.id);
+      }
+    }
+  });
+
+  await Promise.all(newlyInsertedIds.map((id) => notifyJobStatusChange(id, "received")));
 
   revalidatePath(`/dashboard/jobs/${jobId}`);
   redirect(`/dashboard/jobs/${jobId}`);

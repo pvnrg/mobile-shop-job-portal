@@ -34,7 +34,10 @@ export default async function JobDetailPage({
 
   const job = await db.query.jobs.findFirst({
     where: eq(jobs.id, jobId),
-    with: { customer: true },
+    with: {
+      customer: true,
+      devices: { orderBy: (jobDevices, { asc }) => [asc(jobDevices.id)] },
+    },
   });
   if (!job) notFound();
 
@@ -72,6 +75,14 @@ export default async function JobDetailPage({
       .orderBy(desc(jobParts.usedAt)),
   ]);
 
+  const historyByDevice = new Map<number, typeof history>();
+  for (const entry of history) {
+    const deviceId = entry.h.jobDeviceId;
+    if (deviceId === null) continue;
+    if (!historyByDevice.has(deviceId)) historyByDevice.set(deviceId, []);
+    historyByDevice.get(deviceId)!.push(entry);
+  }
+
   const jobInvoice = jobInvoices[0];
   const due = jobInvoice ? Number(jobInvoice.total) - Number(jobInvoice.amountPaid) : 0;
 
@@ -81,8 +92,8 @@ export default async function JobDetailPage({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">{job.jobNumber}</h1>
-            <Badge variant="outline" className={jobStatusColors[job.status]}>
-              {jobStatusLabels[job.status]}
+            <Badge variant="outline">
+              {job.devices.length} {job.devices.length === 1 ? "Device" : "Devices"}
             </Badge>
             {job.priority !== "normal" && (
               <Badge variant="outline" className="capitalize">
@@ -144,25 +155,11 @@ export default async function JobDetailPage({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Smartphone className="h-4 w-4" /> Device & Issue
+                <Smartphone className="h-4 w-4" /> Job Details
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <div className="text-xs text-muted-foreground">Device</div>
-                  <div className="font-medium">
-                    {job.brand} {job.model} ({job.deviceType})
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Serial / IMEI</div>
-                  <div className="font-medium">{job.serialNumber || "—"}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Accessories</div>
-                  <div className="font-medium">{job.accessories || "—"}</div>
-                </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Promised Delivery</div>
                   <div className="font-medium">{formatDate(job.promisedAt)}</div>
@@ -178,19 +175,78 @@ export default async function JobDetailPage({
                   <div className="font-medium">{assignee?.name || "Unassigned"}</div>
                 </div>
               </div>
-              <Separator />
-              <div>
-                <div className="text-xs text-muted-foreground">Issue Description</div>
-                <p className="mt-1 whitespace-pre-wrap">{job.issueDescription}</p>
-              </div>
               {job.notes && (
-                <div>
-                  <div className="text-xs text-muted-foreground">Internal Notes</div>
-                  <p className="mt-1 whitespace-pre-wrap">{job.notes}</p>
-                </div>
+                <>
+                  <Separator />
+                  <div>
+                    <div className="text-xs text-muted-foreground">Internal Notes</div>
+                    <p className="mt-1 whitespace-pre-wrap">{job.notes}</p>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
+
+          {job.devices.map((device, index) => {
+            const deviceHistory = historyByDevice.get(device.id) ?? [];
+            return (
+              <Card key={device.id}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Smartphone className="h-4 w-4" />
+                    Device {index + 1}: {device.brand} {device.model} ({device.deviceType})
+                  </CardTitle>
+                  <Badge variant="outline" className={jobStatusColors[device.status]}>
+                    {jobStatusLabels[device.status]}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <div className="text-xs text-muted-foreground">Serial / IMEI</div>
+                      <div className="font-medium">{device.serialNumber || "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Accessories</div>
+                      <div className="font-medium">{device.accessories || "—"}</div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Issue Description</div>
+                    <p className="mt-1 whitespace-pre-wrap">{device.issueDescription}</p>
+                  </div>
+                  <Separator />
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-muted-foreground">Update Status</div>
+                    <StatusUpdateForm jobDeviceId={device.id} currentStatus={device.status} />
+                  </div>
+                  {deviceHistory.length > 0 && (
+                    <>
+                      <Separator />
+                      <div>
+                        <div className="mb-2 text-xs font-medium text-muted-foreground">
+                          Status History
+                        </div>
+                        <ol className="space-y-3 border-l pl-4">
+                          {deviceHistory.map(({ h, changedByName }) => (
+                            <li key={h.id} className="relative">
+                              <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-primary" />
+                              <div className="text-sm font-medium">{jobStatusLabels[h.status]}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatDateTime(h.changedAt)}
+                                {changedByName ? ` · ${changedByName}` : ""}
+                              </div>
+                              {h.note && <p className="mt-1 text-sm">{h.note}</p>}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
 
           <Card>
             <CardHeader>
@@ -239,36 +295,6 @@ export default async function JobDetailPage({
                 <Phone className="h-3.5 w-3.5" /> {job.customer.phone}
               </div>
               {job.customer.gstin && <Badge variant="outline">{job.customer.gstin}</Badge>}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Update Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StatusUpdateForm jobId={job.id} currentStatus={job.status} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Status History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ol className="space-y-4 border-l pl-4">
-                {history.map(({ h, changedByName }) => (
-                  <li key={h.id} className="relative">
-                    <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-primary" />
-                    <div className="text-sm font-medium">{jobStatusLabels[h.status]}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatDateTime(h.changedAt)}
-                      {changedByName ? ` · ${changedByName}` : ""}
-                    </div>
-                    {h.note && <p className="mt-1 text-sm">{h.note}</p>}
-                  </li>
-                ))}
-              </ol>
             </CardContent>
           </Card>
         </div>

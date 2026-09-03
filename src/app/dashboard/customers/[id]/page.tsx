@@ -35,11 +35,11 @@ export default async function CustomerDetailPage({
   if (!customer) notFound();
 
   const [customerJobs, customerPayments, customerInvoices] = await Promise.all([
-    db
-      .select()
-      .from(jobs)
-      .where(eq(jobs.customerId, customerId))
-      .orderBy(desc(jobs.createdAt)),
+    db.query.jobs.findMany({
+      where: eq(jobs.customerId, customerId),
+      with: { devices: { orderBy: (jobDevices, { asc }) => [asc(jobDevices.id)] } },
+      orderBy: (jobs, { desc }) => [desc(jobs.createdAt)],
+    }),
     db
       .select()
       .from(payments)
@@ -170,6 +170,7 @@ export default async function CustomerDetailPage({
                   {customerJobs.map((job) => {
                     const invoice = invoiceByJobId.get(job.id);
                     const due = invoice ? Number(invoice.total) - Number(invoice.amountPaid) : 0;
+                    const first = job.devices[0];
 
                     return (
                       <TableRow key={job.id}>
@@ -182,13 +183,26 @@ export default async function CustomerDetailPage({
                           </Link>
                         </TableCell>
                         <TableCell>
-                          {job.brand} {job.model}
-                          <div className="text-xs text-muted-foreground">{job.deviceType}</div>
+                          {first ? (
+                            <>
+                              {first.brand} {first.model}
+                              <div className="text-xs text-muted-foreground">
+                                {first.deviceType}
+                                {job.devices.length > 1 ? ` +${job.devices.length - 1} more` : ""}
+                              </div>
+                            </>
+                          ) : (
+                            "—"
+                          )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={jobStatusColors[job.status]}>
-                            {jobStatusLabels[job.status]}
-                          </Badge>
+                          <div className="flex flex-wrap gap-1">
+                            {job.devices.map((d) => (
+                              <Badge key={d.id} variant="outline" className={jobStatusColors[d.status]}>
+                                {jobStatusLabels[d.status]}
+                              </Badge>
+                            ))}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {!invoice ? (
