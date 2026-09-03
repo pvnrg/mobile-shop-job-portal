@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { JobForm } from "@/components/jobs/job-form";
 import { createJobAction } from "@/lib/actions/jobs";
 import { db } from "@/db";
@@ -35,9 +35,6 @@ export default async function NewJobPage({
         </p>
       </div>
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Job Details</CardTitle>
-        </CardHeader>
         <CardContent>
           <JobForm
             action={createJobAction}

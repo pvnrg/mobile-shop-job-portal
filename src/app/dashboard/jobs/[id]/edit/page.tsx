@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { jobs, customers, users } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { JobForm } from "@/components/jobs/job-form";
 import { updateJobDetailsAction } from "@/lib/actions/jobs";
 import { getDeviceMasterData } from "@/lib/device-master";
@@ -44,9 +44,6 @@ export default async function EditJobPage({
         <p className="text-sm text-muted-foreground">Update device and job details</p>
       </div>
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Job Details</CardTitle>
-        </CardHeader>
         <CardContent>
           <JobForm
             action={action}
