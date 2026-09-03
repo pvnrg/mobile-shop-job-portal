@@ -14,24 +14,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Search, Wrench } from "lucide-react";
+import { Plus, Search, Wrench, X } from "lucide-react";
 import { formatDate } from "@/lib/format";
 import { jobStatusColors, jobStatusLabels, jobStatuses, type JobStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import type { JobDevice } from "@/db/types";
+import { CustomerCombobox } from "@/components/customers/customer-combobox";
 
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; customerId?: string }>;
 }) {
-  const { q, status } = await searchParams;
+  const { q, status, customerId } = await searchParams;
   const statusFilter = jobStatuses.includes(status as JobStatus) ? (status as JobStatus) : undefined;
+  const customerFilter = customerId ? Number(customerId) : undefined;
 
   const conditions = [
     statusFilter
       ? sql`exists (select 1 from job_devices jd where jd.job_id = ${jobs.id} and jd.status = ${statusFilter})`
       : undefined,
+    customerFilter ? eq(jobs.customerId, customerFilter) : undefined,
     q
       ? or(
           ilike(jobs.jobNumber, `%${q}%`),
@@ -42,17 +45,23 @@ export default async function JobsPage({
       : undefined,
   ].filter(Boolean);
 
-  const rows = await db
-    .select({
-      job: jobs,
-      customerName: customers.name,
-      customerPhone: customers.phone,
-    })
-    .from(jobs)
-    .innerJoin(customers, eq(jobs.customerId, customers.id))
-    .where(conditions.length ? and(...conditions) : sql`true`)
-    .orderBy(desc(jobs.createdAt))
-    .limit(200);
+  const [rows, customerList] = await Promise.all([
+    db
+      .select({
+        job: jobs,
+        customerName: customers.name,
+        customerPhone: customers.phone,
+      })
+      .from(jobs)
+      .innerJoin(customers, eq(jobs.customerId, customers.id))
+      .where(conditions.length ? and(...conditions) : sql`true`)
+      .orderBy(desc(jobs.createdAt))
+      .limit(200),
+    db
+      .select({ id: customers.id, name: customers.name, phone: customers.phone })
+      .from(customers)
+      .orderBy(asc(customers.name)),
+  ]);
 
   const jobIds = rows.map((r) => r.job.id);
   const devicesForJobs =
@@ -112,9 +121,9 @@ export default async function JobsPage({
 
       <Card>
         <CardContent className="pt-6">
-          <form className="mb-4 flex gap-2">
+          <form className="mb-4 flex flex-wrap gap-2">
             {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
-            <div className="relative flex-1 max-w-sm">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 name="q"
@@ -123,9 +132,21 @@ export default async function JobsPage({
                 className="pl-8"
               />
             </div>
+            <div className="w-full sm:w-64">
+              <CustomerCombobox customers={customerList} name="customerId" defaultValue={customerFilter} />
+            </div>
             <Button type="submit" variant="secondary">
               Search
             </Button>
+            {customerFilter && (
+              <Button asChild type="button" variant="ghost" size="sm">
+                <Link
+                  href={`/dashboard/jobs${statusFilter ? `?status=${statusFilter}` : ""}`}
+                >
+                  <X className="h-4 w-4" /> Clear customer filter
+                </Link>
+              </Button>
+            )}
           </form>
 
           {rows.length === 0 ? (
