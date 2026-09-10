@@ -17,7 +17,12 @@ function getTransport() {
     port: Number(port),
     secure: Number(port) === 465,
     auth: { user, pass },
-  });
+    // Some hosts (e.g. this app's EC2 instance) have no IPv6 route, but
+    // smtp.gmail.com resolves to an IPv6 address by default — force IPv4.
+    // `family` isn't in nodemailer's TS types but is passed through to the
+    // underlying net/tls connect call at runtime.
+    family: 4,
+  } as nodemailer.TransportOptions);
 }
 
 export async function sendAlertEmail(subject: string, text: string) {
