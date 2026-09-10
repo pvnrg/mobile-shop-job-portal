@@ -1,4 +1,13 @@
 import nodemailer from "nodemailer";
+import dns from "node:dns";
+
+// Some hosts (e.g. this app's production EC2 instance) have no IPv6 route,
+// but Node 17+ interleaves IPv6 first by default when resolving hostnames —
+// smtp.gmail.com has an IPv6 address, so connections failed with
+// ENETUNREACH there. Passing `family: 4` directly to nodemailer's transport
+// options did NOT fix this (it isn't honored by its connection logic), so
+// force IPv4-first resolution process-wide instead.
+dns.setDefaultResultOrder("ipv4first");
 
 function getTransport() {
   const host = process.env.SMTP_HOST;
@@ -17,12 +26,7 @@ function getTransport() {
     port: Number(port),
     secure: Number(port) === 465,
     auth: { user, pass },
-    // Some hosts (e.g. this app's EC2 instance) have no IPv6 route, but
-    // smtp.gmail.com resolves to an IPv6 address by default — force IPv4.
-    // `family` isn't in nodemailer's TS types but is passed through to the
-    // underlying net/tls connect call at runtime.
-    family: 4,
-  } as nodemailer.TransportOptions);
+  });
 }
 
 export async function sendAlertEmail(subject: string, text: string) {
