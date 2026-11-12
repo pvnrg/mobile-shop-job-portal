@@ -13,7 +13,8 @@
     "db:seed": "tsx --env-file=.env.local src/db/seed.ts",
     "db:seed-devices": "tsx --env-file=.env.local src/db/seed-devices.ts",
     "db:backfill-job-devices": "tsx --env-file=.env.local src/db/backfill-job-devices.ts",
-    "check-whatsapp-failures": "tsx --env-file=.env.local src/db/check-whatsapp-failures.ts"
+    "check-whatsapp-failures": "tsx --env-file=.env.local src/db/check-whatsapp-failures.ts",
+    "db:seed-dummy": "tsx --env-file=.env.local src/db/seed-dummy.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
