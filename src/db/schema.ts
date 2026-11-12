@@ -8,6 +8,7 @@ import {
   integer,
   pgEnum,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -49,6 +50,8 @@ export const notificationEventEnum = pgEnum("notification_event", [
   "job_cancelled",
   "invoice_created",
   "outstanding_reminder",
+  "outstanding_statement",
+  "account_statement",
 ]);
 
 export const whatsappMessageStatusEnum = pgEnum("whatsapp_message_status", [
@@ -78,9 +81,14 @@ export const customers = pgTable("customers", {
   address: text("address"),
   gstin: varchar("gstin", { length: 15 }),
   notes: text("notes"),
+  // Unguessable token for the public, read-only udhar statement page (/s/<token>).
+  // Generated the first time a statement link is shared.
+  statementToken: varchar("statement_token", { length: 48 }).unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("customers_created_at_idx").on(t.createdAt),
+]);
 
 // ---------- Repair Jobs ----------
 export const jobs = pgTable("jobs", {
@@ -102,7 +110,10 @@ export const jobs = pgTable("jobs", {
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("jobs_customer_id_idx").on(t.customerId),
+  index("jobs_created_at_idx").on(t.createdAt),
+]);
 
 // ---------- Devices within a job (a job can cover multiple devices) ----------
 export const jobDevices = pgTable("job_devices", {
@@ -121,7 +132,10 @@ export const jobDevices = pgTable("job_devices", {
   deliveredAt: timestamp("delivered_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("job_devices_job_id_idx").on(t.jobId),
+  index("job_devices_status_idx").on(t.status),
+]);
 
 // ---------- Job status history (audit trail, per device) ----------
 export const jobStatusHistory = pgTable("job_status_history", {
@@ -138,7 +152,10 @@ export const jobStatusHistory = pgTable("job_status_history", {
     onDelete: "set null",
   }),
   changedAt: timestamp("changed_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("job_status_history_job_id_idx").on(t.jobId),
+  index("job_status_history_job_device_id_idx").on(t.jobDeviceId),
+]);
 
 // ---------- Media uploads (device photos, ID proofs, etc.) ----------
 export const media = pgTable("media", {
@@ -150,13 +167,17 @@ export const media = pgTable("media", {
   filePath: varchar("file_path", { length: 500 }).notNull(),
   fileType: varchar("file_type", { length: 100 }),
   fileSize: integer("file_size"),
+  // Small WebP preview generated on upload; null for PDFs or if generation failed.
+  thumbnailPath: varchar("thumbnail_path", { length: 500 }),
   category: varchar("category", { length: 40 }).notNull().default("device_photo"),
   caption: text("caption"),
   uploadedBy: integer("uploaded_by").references(() => users.id, {
     onDelete: "set null",
   }),
   uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("media_job_id_idx").on(t.jobId),
+]);
 
 // ---------- GST Invoices ----------
 export const invoices = pgTable("invoices", {
@@ -183,7 +204,11 @@ export const invoices = pgTable("invoices", {
   }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("invoices_customer_id_idx").on(t.customerId),
+  index("invoices_job_id_idx").on(t.jobId),
+  index("invoices_created_at_idx").on(t.createdAt),
+]);
 
 // ---------- Invoice line items ----------
 export const invoiceItems = pgTable("invoice_items", {
@@ -197,7 +222,9 @@ export const invoiceItems = pgTable("invoice_items", {
   unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull().default("0"),
   taxRatePercent: numeric("tax_rate_percent", { precision: 5, scale: 2 }).notNull().default("18"),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull().default("0"),
-});
+}, (t) => [
+  index("invoice_items_invoice_id_idx").on(t.invoiceId),
+]);
 
 // ---------- Payments ----------
 export const payments = pgTable("payments", {
@@ -217,7 +244,11 @@ export const payments = pgTable("payments", {
     onDelete: "set null",
   }),
   paidAt: timestamp("paid_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("payments_customer_id_idx").on(t.customerId),
+  index("payments_invoice_id_idx").on(t.invoiceId),
+  index("payments_paid_at_idx").on(t.paidAt),
+]);
 
 // ---------- Business / GST settings (single row) ----------
 export const businessSettings = pgTable("business_settings", {
@@ -228,6 +259,7 @@ export const businessSettings = pgTable("business_settings", {
   address: text("address"),
   phone: varchar("phone", { length: 20 }),
   email: varchar("email", { length: 160 }),
+  upiId: varchar("upi_id", { length: 100 }),
   invoicePrefix: varchar("invoice_prefix", { length: 20 }).notNull().default("INV"),
   jobPrefix: varchar("job_prefix", { length: 20 }).notNull().default("JOB"),
   defaultCgstPercent: numeric("default_cgst_percent", { precision: 5, scale: 2 }).notNull().default("9"),
@@ -306,7 +338,10 @@ export const jobParts = pgTable("job_parts", {
   unitPriceAtUse: numeric("unit_price_at_use", { precision: 10, scale: 2 }).notNull(),
   usedAt: timestamp("used_at").notNull().defaultNow(),
   recordedBy: integer("recorded_by").references(() => users.id, { onDelete: "set null" }),
-});
+}, (t) => [
+  index("job_parts_job_id_idx").on(t.jobId),
+  index("job_parts_part_id_idx").on(t.partId),
+]);
 
 export const partStockAdjustments = pgTable("part_stock_adjustments", {
   id: serial("id").primaryKey(),
@@ -318,7 +353,9 @@ export const partStockAdjustments = pgTable("part_stock_adjustments", {
   note: text("note"),
   recordedBy: integer("recorded_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("part_stock_adjustments_part_id_idx").on(t.partId),
+]);
 
 // ---------- WhatsApp notifications (via RichAutomate API) ----------
 export const whatsappSettings = pgTable("whatsapp_settings", {
@@ -351,7 +388,9 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   providerMessageId: varchar("provider_message_id", { length: 120 }),
   errorMessage: text("error_message"),
   sentAt: timestamp("sent_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("whatsapp_messages_customer_id_idx").on(t.customerId),
+]);
 
 // ---------- Public site content ----------
 export const siteSettings = pgTable("site_settings", {

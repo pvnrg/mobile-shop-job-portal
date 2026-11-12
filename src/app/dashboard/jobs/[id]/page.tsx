@@ -32,16 +32,16 @@ export default async function JobDetailPage({
   const jobId = Number(id);
   if (!Number.isFinite(jobId)) notFound();
 
-  const job = await db.query.jobs.findFirst({
-    where: eq(jobs.id, jobId),
-    with: {
-      customer: true,
-      devices: { orderBy: (jobDevices, { asc }) => [asc(jobDevices.id)] },
-    },
-  });
-  if (!job) notFound();
-
-  const [history, mediaItems, assignee, jobInvoices] = await Promise.all([
+  // Everything below depends only on jobId, so load it all in one round trip.
+  const [job, history, mediaItems, jobInvoices, availableParts, partUsages] = await Promise.all([
+    db.query.jobs.findFirst({
+      where: eq(jobs.id, jobId),
+      with: {
+        customer: true,
+        assignee: { columns: { id: true, name: true } },
+        devices: { orderBy: (jobDevices, { asc }) => [asc(jobDevices.id)] },
+      },
+    }),
     db
       .select({ h: jobStatusHistory, changedByName: users.name })
       .from(jobStatusHistory)
@@ -49,13 +49,7 @@ export default async function JobDetailPage({
       .where(eq(jobStatusHistory.jobId, jobId))
       .orderBy(desc(jobStatusHistory.changedAt)),
     db.select().from(media).where(eq(media.jobId, jobId)).orderBy(desc(media.uploadedAt)),
-    job.assignedTo
-      ? db.query.users.findFirst({ where: eq(users.id, job.assignedTo) })
-      : Promise.resolve(undefined),
     db.select().from(invoices).where(eq(invoices.jobId, jobId)),
-  ]);
-
-  const [availableParts, partUsages] = await Promise.all([
     db
       .select({
         id: parts.id,
@@ -74,6 +68,8 @@ export default async function JobDetailPage({
       .where(eq(jobParts.jobId, jobId))
       .orderBy(desc(jobParts.usedAt)),
   ]);
+  if (!job) notFound();
+  const assignee = job.assignee;
 
   const historyByDevice = new Map<number, typeof history>();
   for (const entry of history) {

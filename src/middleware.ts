@@ -5,8 +5,10 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const isLoginPage = req.nextUrl.pathname === "/login";
   const isPublicSite = req.nextUrl.pathname === "/";
+  // Customer udhar statements, shared by link over WhatsApp — no login.
+  const isPublicStatement = req.nextUrl.pathname.startsWith("/s/");
 
-  if (isPublicSite) {
+  if (isPublicSite || isPublicStatement) {
     return NextResponse.next();
   }
 

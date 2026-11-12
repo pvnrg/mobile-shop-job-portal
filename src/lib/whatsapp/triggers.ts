@@ -1,8 +1,9 @@
 import { db } from "@/db";
-import { jobs, jobDevices, invoices, customers } from "@/db/schema";
+import { jobs, jobDevices, invoices, customers, whatsappTemplates } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { jobStatusLabels, type JobStatus } from "@/lib/status";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
+import { getCustomerStatement, getStatementShare, getStatementUrl } from "@/lib/statement";
 import { sendNotification, type SendNotificationResult } from "./notify";
 import { jobStatusToEvent } from "./events";
 
@@ -78,6 +79,11 @@ export async function notifyJobStatusChange(jobDeviceId: number, status: JobStat
 // Manually triggered from a customer's page (not an automatic status-change
 // event), so — unlike the triggers above — errors are returned rather than
 // swallowed, letting the UI tell the shop owner whether it actually sent.
+//
+// Sends the richer "outstanding_statement" summary (with a link to the public
+// statement page) once that template is enabled in Settings; until then it
+// falls back to the original three-value "outstanding_reminder" template so
+// reminders keep working while the new template awaits Meta approval.
 export async function notifyOutstandingReminder(
   customerId: number
 ): Promise<SendNotificationResult> {
@@ -86,32 +92,60 @@ export async function notifyOutstandingReminder(
     return { success: false, error: "Customer not found." };
   }
 
-  const customerInvoices = await db
-    .select()
-    .from(invoices)
-    .where(eq(invoices.customerId, customerId));
-
-  const outstanding = customerInvoices.reduce((sum, i) => {
-    if (i.status === "cancelled") return sum;
-    const due = Number(i.total) - Number(i.amountPaid);
-    return sum + Math.max(0, due);
-  }, 0);
-
-  if (outstanding <= 0) {
+  const statement = await getCustomerStatement(customerId);
+  if (statement.outstanding <= 0) {
     return { success: false, error: "This customer has no outstanding balance." };
   }
 
-  const settings = await db.query.businessSettings.findFirst();
+  const [settings, summaryTemplate] = await Promise.all([
+    db.query.businessSettings.findFirst(),
+    db.query.whatsappTemplates.findFirst({
+      where: eq(whatsappTemplates.event, "outstanding_statement"),
+    }),
+  ]);
+  const shopName = settings?.businessName ?? "Mobile Repair Shop";
+
+  if (summaryTemplate?.enabled === 1 && summaryTemplate.templateName) {
+    const link = await getStatementUrl(customerId);
+    if (!link) return { success: false, error: "Could not create the statement link." };
+
+    const { pendingInvoices, oldestBillDate, lastPayment } = statement;
+    return sendNotification({
+      event: "outstanding_statement",
+      customerId: customer.id,
+      customerPhone: customer.phone,
+      bodyParams: [
+        customer.name,
+        shopName,
+        formatCurrency(statement.outstanding),
+        String(pendingInvoices.length),
+        formatDate(oldestBillDate),
+        lastPayment
+          ? `${formatCurrency(lastPayment.amount)} on ${formatDate(lastPayment.paidAt)}`
+          : "No payments yet",
+        link,
+      ],
+    });
+  }
 
   return sendNotification({
     event: "outstanding_reminder",
     customerId: customer.id,
     customerPhone: customer.phone,
-    bodyParams: [
-      customer.name,
-      formatCurrency(outstanding),
-      settings?.businessName ?? "Mobile Repair Shop",
-    ],
+    bodyParams: [customer.name, formatCurrency(statement.outstanding), shopName],
+  });
+}
+
+// Sent by the "Send Statement" button. Works for any balance (due, advance or nil).
+export async function notifyAccountStatement(customerId: number): Promise<SendNotificationResult> {
+  const share = await getStatementShare(customerId);
+  if (!share) return { success: false, error: "Customer not found." };
+
+  return sendNotification({
+    event: "account_statement",
+    customerId: share.customer.id,
+    customerPhone: share.customer.phone,
+    bodyParams: [share.customer.name, share.shopName, share.balanceText, share.url],
   });
 }
 

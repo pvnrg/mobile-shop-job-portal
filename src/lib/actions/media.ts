@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { mkdir, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { UPLOAD_ROOT, safeJoin } from "@/lib/upload-dir";
+import { canMakeThumbnail, createThumbnail } from "@/lib/thumbnails";
 
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
@@ -57,6 +58,9 @@ export async function uploadMediaAction(
   await writeFile(filePath, buffer);
 
   const relativePath = path.posix.join("jobs", String(jobId), fileName);
+  const thumbnailPath = canMakeThumbnail(file.type)
+    ? await createThumbnail(buffer, filePath, relativePath)
+    : null;
 
   await db.insert(media).values({
     jobId,
@@ -64,6 +68,7 @@ export async function uploadMediaAction(
     filePath: relativePath,
     fileType: file.type,
     fileSize: file.size,
+    thumbnailPath,
     category,
     caption,
     uploadedBy: userId,
@@ -76,10 +81,13 @@ export async function uploadMediaAction(
 export async function deleteMediaAction(mediaId: number, jobId: number) {
   const item = await db.query.media.findFirst({ where: eq(media.id, mediaId) });
   if (item) {
-    try {
-      await unlink(path.join(UPLOAD_ROOT, item.filePath));
-    } catch {
-      // file already missing on disk; ignore
+    for (const p of [item.filePath, item.thumbnailPath]) {
+      if (!p) continue;
+      try {
+        await unlink(path.join(UPLOAD_ROOT, p));
+      } catch {
+        // file already missing on disk; ignore
+      }
     }
     await db.delete(media).where(eq(media.id, mediaId));
   }

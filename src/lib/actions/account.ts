@@ -6,7 +6,8 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { eq, and, inArray } from "drizzle-orm";
 import type { PaymentMethod } from "@/lib/status";
-import { notifyOutstandingReminder } from "@/lib/whatsapp/triggers";
+import { notifyAccountStatement, notifyOutstandingReminder } from "@/lib/whatsapp/triggers";
+import { getStatementUrl } from "@/lib/statement";
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -85,11 +86,43 @@ export async function clearCustomerAccountAction(
 export async function sendOutstandingReminderAction(
   customerId: number
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { success: false, error: "Not signed in." };
   try {
     const result = await notifyOutstandingReminder(customerId);
     return result.success ? { success: true } : { success: false, error: result.error };
   } catch (err) {
     console.error("[whatsapp] sendOutstandingReminderAction failed", err);
     return { success: false, error: "Something went wrong sending the reminder." };
+  }
+}
+
+// Lets staff copy the customer's statement link to share it by hand
+// (e.g. a normal WhatsApp chat) without going through the template API.
+export async function getStatementLinkAction(
+  customerId: number
+): Promise<{ success: true; url: string } | { success: false; error: string }> {
+  const session = await auth();
+  if (!session?.user) return { success: false, error: "Not signed in." };
+  try {
+    const url = await getStatementUrl(customerId);
+    return url ? { success: true, url } : { success: false, error: "Customer not found." };
+  } catch (err) {
+    console.error("[statement] getStatementLinkAction failed", err);
+    return { success: false, error: "Could not create the statement link." };
+  }
+}
+
+export async function sendAccountStatementAction(
+  customerId: number
+): Promise<{ success: boolean; error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { success: false, error: "Not signed in." };
+  try {
+    const result = await notifyAccountStatement(customerId);
+    return result.success ? { success: true } : { success: false, error: result.error };
+  } catch (err) {
+    console.error("[whatsapp] sendAccountStatementAction failed", err);
+    return { success: false, error: "Something went wrong sending the statement." };
   }
 }

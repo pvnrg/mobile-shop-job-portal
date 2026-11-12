@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { jobs, customers, users } from "@/db/schema";
+import { jobs, users } from "@/db/schema";
+import { getCustomerOption } from "@/lib/customer-option";
 import { eq, asc } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
 import { JobForm } from "@/components/jobs/job-form";
@@ -22,11 +23,8 @@ export default async function EditJobPage({
   });
   if (!job) notFound();
 
-  const [customerList, technicians, deviceMasterData] = await Promise.all([
-    db
-      .select({ id: customers.id, name: customers.name, phone: customers.phone })
-      .from(customers)
-      .orderBy(asc(customers.name)),
+  const [defaultCustomer, technicians, deviceMasterData] = await Promise.all([
+    getCustomerOption(job.customerId),
     db
       .select({ id: users.id, name: users.name })
       .from(users)
@@ -47,7 +45,7 @@ export default async function EditJobPage({
         <CardContent>
           <JobForm
             action={action}
-            customers={customerList}
+            defaultCustomer={defaultCustomer}
             technicians={technicians}
             deviceMasterData={deviceMasterData}
             defaultValues={job}

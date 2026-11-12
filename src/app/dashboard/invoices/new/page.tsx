@@ -2,8 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InvoiceForm } from "@/components/invoices/invoice-form";
 import { createInvoiceAction } from "@/lib/actions/invoices";
 import { db } from "@/db";
-import { customers, jobs } from "@/db/schema";
-import { asc, eq } from "drizzle-orm";
+import { jobs } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { getCustomerOption } from "@/lib/customer-option";
 
 export default async function NewInvoicePage({
   searchParams,
@@ -11,11 +12,6 @@ export default async function NewInvoicePage({
   searchParams: Promise<{ jobId?: string }>;
 }) {
   const { jobId } = await searchParams;
-
-  const customerList = await db
-    .select({ id: customers.id, name: customers.name, phone: customers.phone })
-    .from(customers)
-    .orderBy(asc(customers.name));
 
   let defaultCustomerId: number | undefined;
   let defaultItems: { description: string; hsnSac: string; quantity: number; unitPrice: number; taxRatePercent: number }[] | undefined;
@@ -39,6 +35,8 @@ export default async function NewInvoicePage({
     }
   }
 
+  const defaultCustomer = await getCustomerOption(defaultCustomerId);
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
@@ -54,8 +52,7 @@ export default async function NewInvoicePage({
         <CardContent>
           <InvoiceForm
             action={createInvoiceAction}
-            customers={customerList}
-            defaultCustomerId={defaultCustomerId}
+            defaultCustomer={defaultCustomer}
             defaultJobId={jobId ? Number(jobId) : undefined}
             defaultItems={defaultItems}
           />

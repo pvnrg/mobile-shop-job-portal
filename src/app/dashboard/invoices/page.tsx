@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { db } from "@/db";
 import { invoices, customers } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/layout/pagination";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,13 +19,23 @@ import { Plus, Receipt } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { invoiceStatusColors, invoiceStatusLabels } from "@/lib/status";
 
-export default async function InvoicesPage() {
-  const rows = await db
-    .select({ invoice: invoices, customerName: customers.name })
-    .from(invoices)
-    .innerJoin(customers, eq(invoices.customerId, customers.id))
-    .orderBy(desc(invoices.createdAt))
-    .limit(200);
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const page = parsePage((await searchParams).page);
+
+  const [rows, [{ count: total }]] = await Promise.all([
+    db
+      .select({ invoice: invoices, customerName: customers.name })
+      .from(invoices)
+      .innerJoin(customers, eq(invoices.customerId, customers.id))
+      .orderBy(desc(invoices.createdAt), desc(invoices.id))
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE),
+    db.select({ count: sql<number>`count(*)::int` }).from(invoices),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -93,6 +105,7 @@ export default async function InvoicesPage() {
               </Table>
             </div>
           )}
+          <Pagination page={page} total={total} basePath="/dashboard/invoices" params={{}} />
         </CardContent>
       </Card>
     </div>

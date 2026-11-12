@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PaymentForm } from "@/components/payments/payment-form";
 import { db } from "@/db";
-import { customers, invoices } from "@/db/schema";
-import { asc, eq } from "drizzle-orm";
+import { invoices } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { getCustomerOption } from "@/lib/customer-option";
 
 export default async function NewPaymentPage({
   searchParams,
@@ -11,10 +12,7 @@ export default async function NewPaymentPage({
 }) {
   const { customerId, invoiceId } = await searchParams;
 
-  const customerList = await db
-    .select({ id: customers.id, name: customers.name, phone: customers.phone })
-    .from(customers)
-    .orderBy(asc(customers.name));
+  const defaultCustomer = await getCustomerOption(customerId ? Number(customerId) : null);
 
   let suggestedAmount: number | undefined;
   if (invoiceId) {
@@ -38,8 +36,7 @@ export default async function NewPaymentPage({
         </CardHeader>
         <CardContent>
           <PaymentForm
-            customers={customerList}
-            defaultCustomerId={customerId ? Number(customerId) : undefined}
+            defaultCustomer={defaultCustomer}
             defaultInvoiceId={invoiceId ? Number(invoiceId) : undefined}
             suggestedAmount={suggestedAmount}
           />

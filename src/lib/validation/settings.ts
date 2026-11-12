@@ -17,6 +17,12 @@ export const businessSettingsSchema = z.object({
   address: z.string().trim().max(2000).optional(),
   phone: z.string().trim().max(20).optional(),
   email: z.union([z.literal(""), z.string().trim().email()]).optional(),
+  upiId: z
+    .union([
+      z.literal(""),
+      z.string().trim().regex(/^[\w.\-]{2,}@[a-zA-Z][\w.\-]+$/, "Enter a valid UPI ID, e.g. shopname@okhdfcbank"),
+    ])
+    .optional(),
   invoicePrefix: z.string().trim().min(1).max(20),
   jobPrefix: z.string().trim().min(1).max(20),
   defaultCgstPercent: z.coerce.number().min(0).max(100),

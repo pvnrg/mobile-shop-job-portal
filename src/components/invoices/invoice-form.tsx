@@ -49,14 +49,12 @@ function SubmitButton() {
 
 export function InvoiceForm({
   action,
-  customers,
-  defaultCustomerId,
+  defaultCustomer,
   defaultJobId,
   defaultItems,
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
-  customers: CustomerOption[];
-  defaultCustomerId?: number;
+  defaultCustomer?: CustomerOption | null;
   defaultJobId?: number;
   defaultItems?: LineItem[];
 }) {
@@ -93,7 +91,7 @@ export function InvoiceForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Customer *</Label>
-          <CustomerCombobox customers={customers} name="customerId" defaultValue={defaultCustomerId} />
+          <CustomerCombobox name="customerId" defaultCustomer={defaultCustomer} />
           {state.fieldErrors?.customerId && (
             <p className="text-xs text-destructive">{state.fieldErrors.customerId[0]}</p>
           )}

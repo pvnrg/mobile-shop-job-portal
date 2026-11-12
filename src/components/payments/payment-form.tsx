@@ -29,13 +29,11 @@ function SubmitButton() {
 }
 
 export function PaymentForm({
-  customers,
-  defaultCustomerId,
+  defaultCustomer,
   defaultInvoiceId,
   suggestedAmount,
 }: {
-  customers: CustomerOption[];
-  defaultCustomerId?: number;
+  defaultCustomer?: CustomerOption | null;
   defaultInvoiceId?: number;
   suggestedAmount?: number;
 }) {
@@ -46,7 +44,7 @@ export function PaymentForm({
       {defaultInvoiceId && <input type="hidden" name="invoiceId" value={defaultInvoiceId} />}
       <div className="space-y-2">
         <Label>Customer *</Label>
-        <CustomerCombobox customers={customers} name="customerId" defaultValue={defaultCustomerId} />
+        <CustomerCombobox name="customerId" defaultCustomer={defaultCustomer} />
         {state.fieldErrors?.customerId && (
           <p className="text-xs text-destructive">{state.fieldErrors.customerId[0]}</p>
         )}

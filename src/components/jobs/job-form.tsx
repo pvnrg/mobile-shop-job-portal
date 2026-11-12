@@ -72,21 +72,19 @@ function newRow(): DeviceRow {
 
 export function JobForm({
   action,
-  customers,
+  defaultCustomer,
   technicians,
   deviceMasterData,
   defaultValues,
   defaultDevices,
-  defaultCustomerId,
   submitLabel = "Create Job",
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
-  customers: CustomerOption[];
+  defaultCustomer?: CustomerOption | null;
   technicians: { id: number; name: string }[];
   deviceMasterData: DeviceMasterData;
   defaultValues?: Partial<Job>;
   defaultDevices?: JobDevice[];
-  defaultCustomerId?: number;
   submitLabel?: string;
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
@@ -119,9 +117,8 @@ export function JobForm({
         <SectionHeading icon={UserIcon} title="Customer" />
         <div className="space-y-2">
           <CustomerCombobox
-            customers={customers}
             name="customerId"
-            defaultValue={defaultValues?.customerId ?? defaultCustomerId}
+            defaultCustomer={defaultCustomer}
           />
           {state.fieldErrors?.customerId && (
             <p className="text-xs text-destructive">{state.fieldErrors.customerId[0]}</p>

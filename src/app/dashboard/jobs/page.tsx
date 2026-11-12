@@ -2,6 +2,8 @@ import Link from "next/link";
 import { db } from "@/db";
 import { jobs, customers, jobDevices } from "@/db/schema";
 import { desc, eq, and, ilike, or, sql, inArray, asc } from "drizzle-orm";
+import { getCustomerOption } from "@/lib/customer-option";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/layout/pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -24,9 +26,10 @@ import { CustomerCombobox } from "@/components/customers/customer-combobox";
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; customerId?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; customerId?: string; page?: string }>;
 }) {
-  const { q, status, customerId } = await searchParams;
+  const { q, status, customerId, page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
   const statusFilter = jobStatuses.includes(status as JobStatus) ? (status as JobStatus) : undefined;
   const customerFilter = customerId ? Number(customerId) : undefined;
 
@@ -45,7 +48,9 @@ export default async function JobsPage({
       : undefined,
   ].filter(Boolean);
 
-  const [rows, customerList] = await Promise.all([
+  const where = conditions.length ? and(...conditions) : sql`true`;
+
+  const [rows, [{ count: total }], selectedCustomer] = await Promise.all([
     db
       .select({
         job: jobs,
@@ -54,13 +59,16 @@ export default async function JobsPage({
       })
       .from(jobs)
       .innerJoin(customers, eq(jobs.customerId, customers.id))
-      .where(conditions.length ? and(...conditions) : sql`true`)
-      .orderBy(desc(jobs.createdAt))
-      .limit(200),
+      .where(where)
+      .orderBy(desc(jobs.createdAt), desc(jobs.id))
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE),
     db
-      .select({ id: customers.id, name: customers.name, phone: customers.phone })
-      .from(customers)
-      .orderBy(asc(customers.name)),
+      .select({ count: sql<number>`count(*)::int` })
+      .from(jobs)
+      .innerJoin(customers, eq(jobs.customerId, customers.id))
+      .where(where),
+    getCustomerOption(customerFilter),
   ]);
 
   const jobIds = rows.map((r) => r.job.id);
@@ -133,7 +141,7 @@ export default async function JobsPage({
               />
             </div>
             <div className="w-full sm:w-64">
-              <CustomerCombobox customers={customerList} name="customerId" defaultValue={customerFilter} />
+              <CustomerCombobox name="customerId" defaultCustomer={selectedCustomer} />
             </div>
             <Button type="submit" variant="secondary">
               Search
@@ -219,6 +227,12 @@ export default async function JobsPage({
               </Table>
             </div>
           )}
+          <Pagination
+            page={page}
+            total={total}
+            basePath="/dashboard/jobs"
+            params={{ q, status: statusFilter, customerId }}
+          />
         </CardContent>
       </Card>
     </div>

@@ -16,6 +16,20 @@ export async function ensureWhatsappTemplateRows() {
     .onConflictDoNothing();
 }
 
+/** True when WhatsApp is switched on and this event's template is enabled and named. */
+export async function isWhatsappEventReady(event: NotificationEvent) {
+  const [settings, template] = await Promise.all([
+    getConfig(),
+    db.query.whatsappTemplates.findFirst({ where: eq(whatsappTemplates.event, event) }),
+  ]);
+  return !!(
+    settings?.enabled === 1 &&
+    settings.accessToken &&
+    template?.enabled === 1 &&
+    template.templateName
+  );
+}
+
 async function getConfig() {
   const settings = await db.query.whatsappSettings.findFirst();
   return settings ?? null;

@@ -2,7 +2,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { JobForm } from "@/components/jobs/job-form";
 import { createJobAction } from "@/lib/actions/jobs";
 import { db } from "@/db";
-import { customers, users } from "@/db/schema";
+import { users } from "@/db/schema";
+import { getCustomerOption } from "@/lib/customer-option";
 import { asc, eq } from "drizzle-orm";
 import { getDeviceMasterData } from "@/lib/device-master";
 
@@ -13,11 +14,8 @@ export default async function NewJobPage({
 }) {
   const { customerId } = await searchParams;
 
-  const [customerList, technicians, deviceMasterData] = await Promise.all([
-    db
-      .select({ id: customers.id, name: customers.name, phone: customers.phone })
-      .from(customers)
-      .orderBy(asc(customers.name)),
+  const [defaultCustomer, technicians, deviceMasterData] = await Promise.all([
+    getCustomerOption(customerId ? Number(customerId) : null),
     db
       .select({ id: users.id, name: users.name })
       .from(users)
@@ -38,10 +36,9 @@ export default async function NewJobPage({
         <CardContent>
           <JobForm
             action={createJobAction}
-            customers={customerList}
+            defaultCustomer={defaultCustomer}
             technicians={technicians}
             deviceMasterData={deviceMasterData}
-            defaultCustomerId={customerId ? Number(customerId) : undefined}
             submitLabel="Create Job"
           />
         </CardContent>

@@ -35,7 +35,7 @@ export function MediaGallery({ items, jobId }: { items: Media[]; jobId: number }
             >
               {isImage ? (
                 <Image
-                  src={`/api/files/${item.filePath}`}
+                  src={`/api/files/${item.thumbnailPath ?? item.filePath}`}
                   alt={item.caption || item.fileName}
                   fill
                   sizes="200px"

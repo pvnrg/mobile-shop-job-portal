@@ -10,6 +10,8 @@ export const notificationEvents = [
   "job_cancelled",
   "invoice_created",
   "outstanding_reminder",
+  "outstanding_statement",
+  "account_statement",
 ] as const;
 
 export type NotificationEvent = (typeof notificationEvents)[number];
@@ -73,5 +75,25 @@ export const notificationEventMeta: Record<
     description:
       "Sent manually from a customer's page to remind them of their outstanding udhar balance.",
     params: ["Customer Name", "Outstanding Amount", "Shop Name"],
+  },
+  outstanding_statement: {
+    label: "Outstanding Summary with Statement Link",
+    description:
+      "Sent from a customer's page instead of the basic reminder once this template is enabled. Includes a bill summary and a link to the customer's full udhar statement.",
+    params: [
+      "Customer Name",
+      "Shop Name",
+      "Outstanding Amount",
+      "Pending Bills",
+      "Oldest Bill Date",
+      "Last Payment",
+      "Statement Link",
+    ],
+  },
+  account_statement: {
+    label: "Account Statement",
+    description:
+      "Sent with the Send Statement button on a customer's page. Shares their running balance and a link to the full bank-style statement of bills and payments. Until this is enabled, the button opens WhatsApp with the message ready to send instead.",
+    params: ["Customer Name", "Shop Name", "Balance", "Statement Link"],
   },
 };

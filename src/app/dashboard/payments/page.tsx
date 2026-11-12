@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { db } from "@/db";
 import { payments, customers, invoices } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/layout/pagination";
+
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -16,8 +18,15 @@ import { CreditCard, Plus } from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { paymentMethodLabels } from "@/lib/status";
 
-export default async function PaymentsPage() {
-  const rows = await db
+export default async function PaymentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const page = parsePage((await searchParams).page);
+
+  const [rows, [{ count: total, sum: totalCollectedRaw }]] = await Promise.all([
+    db
     .select({
       payment: payments,
       customerName: customers.name,
@@ -26,10 +35,18 @@ export default async function PaymentsPage() {
     .from(payments)
     .innerJoin(customers, eq(payments.customerId, customers.id))
     .leftJoin(invoices, eq(payments.invoiceId, invoices.id))
-    .orderBy(desc(payments.paidAt))
-    .limit(200);
-
-  const totalCollected = rows.reduce((sum, r) => sum + Number(r.payment.amount), 0);
+    .orderBy(desc(payments.paidAt), desc(payments.id))
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE),
+    // All-time total (previously summed only the 200 rows shown).
+    db
+      .select({
+        count: sql<number>`count(*)::int`,
+        sum: sql<string>`coalesce(sum(${payments.amount}), 0)`,
+      })
+      .from(payments),
+  ]);
+  const totalCollected = Number(totalCollectedRaw);
 
   return (
     <div className="space-y-6">
@@ -111,6 +128,7 @@ export default async function PaymentsPage() {
               </Table>
             </div>
           )}
+          <Pagination page={page} total={total} basePath="/dashboard/payments" params={{}} />
         </CardContent>
       </Card>
     </div>

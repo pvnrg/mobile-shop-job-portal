@@ -19,7 +19,9 @@ import { jobStatusColors, jobStatusLabels } from "@/lib/status";
 import { ClearAccountButton } from "@/components/customers/clear-account-button";
 import { ClearInvoiceButton } from "@/components/customers/clear-invoice-button";
 import { SendOutstandingReminderButton } from "@/components/customers/send-outstanding-reminder-button";
-import { CheckCircle2, Mail, MapPin, Pencil, Phone, Plus } from "lucide-react";
+import { CopyStatementLinkButton } from "@/components/customers/copy-statement-link-button";
+import { SendStatementButton } from "@/components/customers/send-statement-button";
+import { CheckCircle2, Mail, MapPin, Pencil, Phone, Plus, ScrollText } from "lucide-react";
 
 export default async function CustomerDetailPage({
   params,
@@ -95,7 +97,14 @@ export default async function CustomerDetailPage({
               <Pencil className="h-4 w-4" /> Edit
             </Link>
           </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/dashboard/customers/${customer.id}/statement`}>
+              <ScrollText className="h-4 w-4" /> Statement
+            </Link>
+          </Button>
+          <SendStatementButton customerId={customer.id} />
           <SendOutstandingReminderButton customerId={customer.id} totalUdhar={totalUdhar} />
+          <CopyStatementLinkButton customerId={customer.id} />
           <ClearAccountButton customerId={customer.id} totalUdhar={totalUdhar} />
           <Button asChild size="sm">
             <Link href={`/dashboard/jobs/new?customerId=${customer.id}`}>

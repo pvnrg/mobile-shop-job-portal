@@ -63,6 +63,21 @@ export function BusinessSettingsForm({ settings }: { settings: BusinessSettings 
           <Label htmlFor="email">Email</Label>
           <Input id="email" name="email" type="email" defaultValue={settings?.email ?? ""} />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="upiId">UPI ID</Label>
+          <Input
+            id="upiId"
+            name="upiId"
+            defaultValue={settings?.upiId ?? ""}
+            placeholder="shopname@okhdfcbank"
+          />
+          <p className="text-xs text-muted-foreground">
+            Shows a &quot;Pay via UPI&quot; button on customers&apos; udhar statements.
+          </p>
+          {state.fieldErrors?.upiId && (
+            <p className="text-xs text-destructive">{state.fieldErrors.upiId[0]}</p>
+          )}
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="address">Business Address</Label>

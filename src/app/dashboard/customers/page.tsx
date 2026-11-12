@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { db } from "@/db";
 import { customers, invoices } from "@/db/schema";
-import { desc, ilike, ne, or, sql } from "drizzle-orm";
+import { and, desc, ilike, inArray, ne, or, sql } from "drizzle-orm";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/layout/pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,41 +21,44 @@ import { formatCurrency } from "@/lib/format";
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
 
-  const [rows, outstandingInvoices] = await Promise.all([
+  const where = q
+    ? or(
+        ilike(customers.name, `%${q}%`),
+        ilike(customers.phone, `%${q}%`),
+        ilike(customers.email, `%${q}%`)
+      )
+    : sql`true`;
+
+  const [rows, [{ count: total }]] = await Promise.all([
     db
       .select()
       .from(customers)
-      .where(
-        q
-          ? or(
-              ilike(customers.name, `%${q}%`),
-              ilike(customers.phone, `%${q}%`),
-              ilike(customers.email, `%${q}%`)
-            )
-          : sql`true`
-      )
-      .orderBy(desc(customers.createdAt))
-      .limit(200),
-    db
-      .select({
-        customerId: invoices.customerId,
-        total: invoices.total,
-        amountPaid: invoices.amountPaid,
-      })
-      .from(invoices)
-      .where(ne(invoices.status, "cancelled")),
+      .where(where)
+      .orderBy(desc(customers.createdAt), desc(customers.id))
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE),
+    db.select({ count: sql<number>`count(*)::int` }).from(customers).where(where),
   ]);
 
-  const udharByCustomer = new Map<number, number>();
-  for (const inv of outstandingInvoices) {
-    const due = Number(inv.total) - Number(inv.amountPaid);
-    if (due <= 0) continue;
-    udharByCustomer.set(inv.customerId, (udharByCustomer.get(inv.customerId) ?? 0) + due);
-  }
+  // Udhar for just the customers on this page, summed in the database.
+  // Same rule as the customer page: non-cancelled invoices with money due.
+  const customerIds = rows.map((c) => c.id);
+  const udharRows = customerIds.length
+    ? await db
+        .select({
+          customerId: invoices.customerId,
+          udhar: sql<string>`sum(greatest(${invoices.total} - ${invoices.amountPaid}, 0))`,
+        })
+        .from(invoices)
+        .where(and(inArray(invoices.customerId, customerIds), ne(invoices.status, "cancelled")))
+        .groupBy(invoices.customerId)
+    : [];
+  const udharByCustomer = new Map(udharRows.map((r) => [r.customerId, Number(r.udhar)]));
 
   return (
     <div className="space-y-6">
@@ -152,6 +156,7 @@ export default async function CustomersPage({
               </Table>
             </div>
           )}
+          <Pagination page={page} total={total} basePath="/dashboard/customers" params={{ q }} />
         </CardContent>
       </Card>
     </div>

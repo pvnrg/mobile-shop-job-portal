@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/db";
 import { parts } from "@/db/schema";
 import { asc, ilike, or, sql } from "drizzle-orm";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/layout/pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,32 +21,40 @@ import { formatCurrency } from "@/lib/format";
 export default async function InventoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
 
-  const rows = await db
-    .select()
-    .from(parts)
-    .where(
-      q
-        ? or(
-            ilike(parts.name, `%${q}%`),
-            ilike(parts.sku, `%${q}%`),
-            ilike(parts.category, `%${q}%`)
-          )
-        : sql`true`
-    )
-    .orderBy(asc(parts.name))
-    .limit(300);
+  const where = q
+    ? or(
+        ilike(parts.name, `%${q}%`),
+        ilike(parts.sku, `%${q}%`),
+        ilike(parts.category, `%${q}%`)
+      )
+    : sql`true`;
 
-  const lowStockCount = rows.filter(
-    (p) => p.active === 1 && p.quantityInStock <= p.lowStockThreshold
-  ).length;
-  const totalStockValue = rows.reduce(
-    (sum, p) => sum + Number(p.unitCost) * p.quantityInStock,
-    0
-  );
+  // Summary cards cover every matching part, not just the current page.
+  const [rows, [summary]] = await Promise.all([
+    db
+      .select()
+      .from(parts)
+      .where(where)
+      .orderBy(asc(parts.name), asc(parts.id))
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE),
+    db
+      .select({
+        total: sql<number>`count(*)::int`,
+        lowStock: sql<number>`count(*) filter (where ${parts.active} = 1 and ${parts.quantityInStock} <= ${parts.lowStockThreshold})::int`,
+        stockValue: sql<string>`coalesce(sum(${parts.unitCost} * ${parts.quantityInStock}), 0)`,
+      })
+      .from(parts)
+      .where(where),
+  ]);
+
+  const lowStockCount = summary.lowStock;
+  const totalStockValue = Number(summary.stockValue);
 
   return (
     <div className="space-y-6">
@@ -68,7 +77,7 @@ export default async function InventoryPage({
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground">Total Parts</div>
-            <div className="text-2xl font-semibold">{rows.length}</div>
+            <div className="text-2xl font-semibold">{summary.total}</div>
           </CardContent>
         </Card>
         <Card className={lowStockCount > 0 ? "border-red-200" : undefined}>
@@ -173,6 +182,7 @@ export default async function InventoryPage({
               </Table>
             </div>
           )}
+          <Pagination page={page} total={summary.total} basePath="/dashboard/inventory" params={{ q }} />
         </CardContent>
       </Card>
     </div>
