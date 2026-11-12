@@ -52,6 +52,7 @@ export const notificationEventEnum = pgEnum("notification_event", [
   "outstanding_reminder",
   "outstanding_statement",
   "account_statement",
+  "account_statement_pdf",
 ]);
 
 export const whatsappMessageStatusEnum = pgEnum("whatsapp_message_status", [

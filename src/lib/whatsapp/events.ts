@@ -12,6 +12,7 @@ export const notificationEvents = [
   "outstanding_reminder",
   "outstanding_statement",
   "account_statement",
+  "account_statement_pdf",
 ] as const;
 
 export type NotificationEvent = (typeof notificationEvents)[number];
@@ -94,6 +95,12 @@ export const notificationEventMeta: Record<
     label: "Account Statement",
     description:
       "Sent with the Send Statement button on a customer's page. Shares their running balance and a link to the full bank-style statement of bills and payments. Until this is enabled, the button opens WhatsApp with the message ready to send instead.",
+    params: ["Customer Name", "Shop Name", "Balance", "Statement Link"],
+  },
+  account_statement_pdf: {
+    label: "Account Statement (PDF)",
+    description:
+      "Same as Account Statement, but attaches the statement as a PDF. The template must have a DOCUMENT header. When enabled, the Send Statement button uses this one.",
     params: ["Customer Name", "Shop Name", "Balance", "Statement Link"],
   },
 };

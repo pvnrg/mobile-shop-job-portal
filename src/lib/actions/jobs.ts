@@ -205,7 +205,12 @@ export async function updateJobDeviceStatusAction(
     }
   });
 
-  await notifyJobStatusChange(jobDeviceId, parsed.data.status);
+  // Only message the customer when the status actually changed — pressing
+  // "Update Status" to add a note or record a payment shouldn't resend the
+  // same WhatsApp message (e.g. a second "received" right after creating a job).
+  if (parsed.data.status !== device.status) {
+    await notifyJobStatusChange(jobDeviceId, parsed.data.status);
+  }
 
   revalidatePath(`/dashboard/jobs/${jobId}`);
   revalidatePath("/dashboard/jobs");

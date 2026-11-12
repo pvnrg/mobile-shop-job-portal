@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { jobStatusLabels, type JobStatus } from "@/lib/status";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getCustomerStatement, getStatementShare, getStatementUrl } from "@/lib/statement";
-import { sendNotification, type SendNotificationResult } from "./notify";
+import { isWhatsappEventReady, sendNotification, type SendNotificationResult } from "./notify";
 import { jobStatusToEvent } from "./events";
 
 function deviceName(device: { brand: string | null; model: string | null; deviceType: string }) {
@@ -141,11 +141,14 @@ export async function notifyAccountStatement(customerId: number): Promise<SendNo
   const share = await getStatementShare(customerId);
   if (!share) return { success: false, error: "Customer not found." };
 
+  // Prefer the template with the PDF attached; fall back to the link-only one.
+  const withPdf = await isWhatsappEventReady("account_statement_pdf");
   return sendNotification({
-    event: "account_statement",
+    event: withPdf ? "account_statement_pdf" : "account_statement",
     customerId: share.customer.id,
     customerPhone: share.customer.phone,
     bodyParams: [share.customer.name, share.shopName, share.balanceText, share.url],
+    headerDocument: withPdf ? share.pdf : undefined,
   });
 }
 

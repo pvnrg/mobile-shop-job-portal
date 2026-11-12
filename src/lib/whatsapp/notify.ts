@@ -69,6 +69,7 @@ type SendNotificationInput = {
   jobDeviceId?: number | null;
   invoiceId?: number | null;
   bodyParams: string[];
+  headerDocument?: { url: string; filename: string };
 };
 
 export type SendNotificationResult = { success: true } | { success: false; error: string };
@@ -120,6 +121,7 @@ export async function sendNotification(
     templateName: template.templateName!,
     languageCode: template.languageCode,
     bodyParams: input.bodyParams,
+    headerDocument: input.headerDocument,
   });
 
   await logMessage({

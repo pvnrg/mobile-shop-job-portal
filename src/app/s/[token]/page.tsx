@@ -10,7 +10,7 @@ import { getLogoUrl } from "@/lib/logo";
 import { getCustomerLedger, getCustomerStatement, parseStatementPeriod } from "@/lib/statement";
 import { AccountStatement } from "@/components/statement/account-statement";
 import { PrintButton } from "@/components/invoices/print-button";
-import { CheckCircle2, IndianRupee, Phone } from "lucide-react";
+import { CheckCircle2, FileDown, IndianRupee, Phone } from "lucide-react";
 
 // Public, read-only udhar statement opened from the WhatsApp reminder link.
 // Access is by unguessable token only, so keep personal details minimal and
@@ -129,7 +129,12 @@ export default async function CustomerStatementPage({
         <Card className="print:border-none print:shadow-none">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-base">Account statement</CardTitle>
-            <div className="print:hidden">
+            <div className="flex gap-2 print:hidden">
+              <Button asChild size="sm" variant="outline">
+                <a href={`/s/${token}/pdf${period === "all" ? "" : `?period=${period}`}`} target="_blank" rel="noreferrer">
+                  <FileDown className="h-4 w-4" /> PDF
+                </a>
+              </Button>
               <PrintButton />
             </div>
           </CardHeader>

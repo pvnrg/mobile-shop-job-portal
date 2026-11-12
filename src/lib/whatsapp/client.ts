@@ -19,6 +19,8 @@ export type SendTemplateMessageInput = {
   templateName: string;
   languageCode: string;
   bodyParams: string[];
+  /** For templates with a DOCUMENT header: a public URL Meta downloads the file from. */
+  headerDocument?: { url: string; filename: string };
 };
 
 export type SendTemplateMessageResult =
@@ -45,6 +47,13 @@ export async function sendWhatsappTemplateMessage(
         // RichAutomate expects variables keyed by position ("1", "2", ...),
         // not a plain array — confirmed against a real send.
         variables: Object.fromEntries(input.bodyParams.map((v, i) => [String(i + 1), v])),
+        ...(input.headerDocument
+          ? {
+              header_media_type: "document",
+              header_media_url: input.headerDocument.url,
+              filename: input.headerDocument.filename,
+            }
+          : {}),
       }),
     });
 

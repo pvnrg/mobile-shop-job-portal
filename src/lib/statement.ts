@@ -132,11 +132,17 @@ export type LedgerEntry =
       balance: number;
     };
 
-function deviceSummary(devices: { brand: string | null; model: string | null; deviceType: string }[]) {
+// Every device on the bill's job, e.g. "Samsung Galaxy A52, Apple iPhone 12".
+function deviceSummary(devices: { id: number; brand: string | null; model: string | null; deviceType: string }[]) {
   if (!devices.length) return null;
-  const first = devices[0];
-  const name = [first.brand, first.model].filter(Boolean).join(" ") || first.deviceType;
-  return devices.length > 1 ? `${name} +${devices.length - 1} more` : name;
+  return [...devices]
+    .sort((a, b) => a.id - b.id)
+    .map((d) => {
+      // Skip the brand when the model already starts with it ("Nokia" + "Nokia 5.4").
+      const brand = d.brand && d.model?.toLowerCase().startsWith(d.brand.toLowerCase()) ? null : d.brand;
+      return [brand, d.model].filter(Boolean).join(" ") || d.deviceType;
+    })
+    .join(", ");
 }
 
 /**
@@ -257,6 +263,7 @@ export async function getStatementShare(customerId: number) {
     `Balance: ${balanceText}`,
     ``,
     `See every bill and payment here: ${url}`,
+    `Download as PDF: ${url}/pdf`,
     ``,
     `Thank you!`,
   ].join("\n");
@@ -264,5 +271,8 @@ export async function getStatementShare(customerId: number) {
   const phone = formatPhoneForWhatsapp(customer.phone, waSettings?.defaultCountryCode ?? "91");
   const waLink = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : null;
 
-  return { customer, shopName, url, balanceText, message, waLink };
+  const safeName = customer.name.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "") || "Customer";
+  const pdf = { url: `${url}/pdf`, filename: `Statement_${safeName}.pdf` };
+
+  return { customer, shopName, url, pdf, balanceText, message, waLink };
 }

@@ -5,7 +5,7 @@ import { customers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileDown } from "lucide-react";
 import { formatDate } from "@/lib/format";
 import {
   getCustomerLedger,
@@ -52,6 +52,11 @@ export default async function CustomerStatementPage({
         <div className="flex flex-wrap gap-2">
           <SendStatementButton customerId={customerId} />
           <CopyStatementLinkButton customerId={customerId} />
+          <Button asChild size="sm" variant="outline">
+            <a href={`${base}/pdf?download=1${period === "all" ? "" : `&period=${period}`}`}>
+              <FileDown className="h-4 w-4" /> PDF
+            </a>
+          </Button>
           <PrintButton />
         </div>
       </div>

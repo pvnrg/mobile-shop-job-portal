@@ -127,7 +127,9 @@ export async function sendTestMessageAction(
     to: phone,
     templateName: template.templateName,
     languageCode: template.languageCode,
-    bodyParams: ["Test Customer", "JOB-TEST-0000", "Test Device", "Received"],
+    // Same 5 values a real "Job Received" message sends (see notifyJobReceived),
+    // so a passing test means real job messages will go through too.
+    bodyParams: ["Test Customer", "JOB-TEST-0000", "Test Device", "Received", "₹1,500.00"],
   });
 
   if (!result.success) {
