@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { BarChart } from "@/components/reports/bar-chart";
 import { formatCurrency } from "@/lib/format";
+import { getTotalOutstanding } from "@/lib/balances";
 import { resolveDateRange, toDateInputValue } from "@/lib/date-range";
 import { jobStatusColors, jobStatusLabels, jobStatuses } from "@/lib/status";
 
@@ -114,10 +115,8 @@ export default async function ReportsPage({
       })
       .from(jobParts)
       .where(and(gte(jobParts.usedAt, start), lte(jobParts.usedAt, end))),
-    db
-      .select({ total: sql<string>`coalesce(sum(${invoices.total} - ${invoices.amountPaid}), 0)` })
-      .from(invoices)
-      .where(sql`${invoices.status} not in ('paid', 'cancelled', 'draft')`),
+    // Same udhar rule as the customer pages (billed − paid per customer).
+    getTotalOutstanding().then((total) => [{ total: String(total) }]),
   ]);
 
   const inv = invoiceTotals[0];

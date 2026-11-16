@@ -89,7 +89,7 @@ export default async function CustomerStatementPage({
 
           <AccountStatement
             ledger={ledger}
-            outstandingOnBills={statement.outstanding}
+            outstandingOnBills={statement.billsDue}
             periodHref={(p) => (p === "all" ? base : `${base}?period=${p}`)}
           />
         </CardContent>

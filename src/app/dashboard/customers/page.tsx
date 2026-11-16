@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { db } from "@/db";
-import { customers, invoices } from "@/db/schema";
-import { and, desc, ilike, inArray, ne, or, sql } from "drizzle-orm";
+import { customers } from "@/db/schema";
+import { getCustomerBalances } from "@/lib/balances";
+import { desc, ilike, or, sql } from "drizzle-orm";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/layout/pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,20 +46,10 @@ export default async function CustomersPage({
     db.select({ count: sql<number>`count(*)::int` }).from(customers).where(where),
   ]);
 
-  // Udhar for just the customers on this page, summed in the database.
-  // Same rule as the customer page: non-cancelled invoices with money due.
-  const customerIds = rows.map((c) => c.id);
-  const udharRows = customerIds.length
-    ? await db
-        .select({
-          customerId: invoices.customerId,
-          udhar: sql<string>`sum(greatest(${invoices.total} - ${invoices.amountPaid}, 0))`,
-        })
-        .from(invoices)
-        .where(and(inArray(invoices.customerId, customerIds), ne(invoices.status, "cancelled")))
-        .groupBy(invoices.customerId)
-    : [];
-  const udharByCustomer = new Map(udharRows.map((r) => [r.customerId, Number(r.udhar)]));
+  // Udhar for just the customers on this page — same rule as the customer
+  // page and statement (billed − paid, see lib/balances).
+  const balances = await getCustomerBalances(rows.map((c) => c.id));
+  const udharByCustomer = new Map([...balances].map(([id, b]) => [id, b.udhar]));
 
   return (
     <div className="space-y-6">

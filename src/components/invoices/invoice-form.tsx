@@ -52,8 +52,11 @@ export function InvoiceForm({
   defaultCustomer,
   defaultJobId,
   defaultItems,
+  alreadyPaid = 0,
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
+  /** Paid on the job before this invoice (e.g. at delivery); it's linked to the invoice. */
+  alreadyPaid?: number;
   defaultCustomer?: CustomerOption | null;
   defaultJobId?: number;
   defaultItems?: LineItem[];
@@ -278,6 +281,12 @@ export function InvoiceForm({
             <p className="text-xs text-muted-foreground">
               If the customer is paying some or all of this invoice right away, record it here.
             </p>
+            {alreadyPaid > 0 && (
+              <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                {formatCurrency(alreadyPaid)} was already paid on this job and will be counted
+                towards this invoice. Only enter money received now.
+              </p>
+            )}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -288,7 +297,7 @@ export function InvoiceForm({
                   name="amountPaid"
                   type="number"
                   min="0"
-                  max={totals.total}
+                  max={Math.max(0, totals.total - alreadyPaid)}
                   step="0.01"
                   value={amountPaid}
                   onChange={(e) =>
@@ -300,7 +309,7 @@ export function InvoiceForm({
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => setAmountPaid(totals.total)}
+                  onClick={() => setAmountPaid(Math.max(0, Math.round((totals.total - alreadyPaid) * 100) / 100))}
                 >
                   Full Amount
                 </Button>
@@ -328,11 +337,11 @@ export function InvoiceForm({
               )}
             </div>
           </div>
-          {typeof amountPaid === "number" && amountPaid > 0 && (
+          {((typeof amountPaid === "number" && amountPaid > 0) || alreadyPaid > 0) && (
             <p className="text-xs text-muted-foreground">
               Balance due after this payment:{" "}
               <span className="font-medium text-foreground">
-                {formatCurrency(Math.max(0, totals.total - amountPaid))}
+                {formatCurrency(Math.max(0, totals.total - alreadyPaid - (Number(amountPaid) || 0)))}
               </span>
             </p>
           )}

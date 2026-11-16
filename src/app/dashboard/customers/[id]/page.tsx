@@ -17,6 +17,7 @@ import {
 import { formatCurrency, formatDate } from "@/lib/format";
 import { jobStatusColors, jobStatusLabels } from "@/lib/status";
 import { ClearAccountButton } from "@/components/customers/clear-account-button";
+import { getCustomerBalance } from "@/lib/balances";
 import { ClearInvoiceButton } from "@/components/customers/clear-invoice-button";
 import { SendOutstandingReminderButton } from "@/components/customers/send-outstanding-reminder-button";
 import { CopyStatementLinkButton } from "@/components/customers/copy-statement-link-button";
@@ -55,13 +56,12 @@ export default async function CustomerDetailPage({
       .orderBy(desc(invoices.createdAt)),
   ]);
 
-  const totalInvoiced = customerInvoices.reduce((sum, i) => sum + Number(i.total), 0);
-  const totalPaid = customerPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const totalUdhar = customerInvoices.reduce((sum, i) => {
-    if (i.status === "cancelled") return sum;
-    const due = Number(i.total) - Number(i.amountPaid);
-    return sum + Math.max(0, due);
-  }, 0);
+  // Shared rule (see lib/balances): udhar = billed (non-cancelled) − paid,
+  // the same figure as the statement's closing balance.
+  const balance = await getCustomerBalance(customerId);
+  const totalInvoiced = balance.billed;
+  const totalPaid = balance.paid;
+  const totalUdhar = balance.udhar;
 
   const invoiceByJobId = new Map(
     customerInvoices.filter((i) => i.jobId !== null).map((i) => [i.jobId as number, i])
@@ -149,7 +149,11 @@ export default async function CustomerDetailPage({
             ) : (
               <>
                 <CheckCircle2 className="h-5 w-5" />
-                <span className="text-base font-medium">No Udhar — Account Clear</span>
+                <span className="text-base font-medium">
+                  {balance.advance > 0
+                    ? `No Udhar — ${formatCurrency(balance.advance)} advance`
+                    : "No Udhar — Account Clear"}
+                </span>
               </>
             )}
           </CardContent>

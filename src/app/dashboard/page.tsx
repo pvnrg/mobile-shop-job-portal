@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { db } from "@/db";
-import { jobs, invoices, payments, customers, parts } from "@/db/schema";
+import { jobs, payments, customers, parts } from "@/db/schema";
 import { eq, gte, sql, and } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { getTotalOutstanding } from "@/lib/balances";
 import { jobStatusColors, jobStatusLabels } from "@/lib/status";
 import { Users, Wrench, IndianRupee, AlertCircle, Plus, PackageX } from "lucide-react";
 
@@ -25,16 +26,14 @@ export default async function DashboardPage() {
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(jobs)
-      .where(sql`exists (select 1 from job_devices jd where jd.job_id = ${jobs.id} and jd.status <> 'delivered')`),
+      .where(sql`exists (select 1 from job_devices jd where jd.job_id = ${jobs.id} and jd.status not in ('delivered', 'cancelled'))`),
     db.select({ count: sql<number>`count(*)::int` }).from(customers),
     db
       .select({ total: sql<string>`coalesce(sum(${payments.amount}), 0)` })
       .from(payments)
       .where(gte(payments.paidAt, startOfMonth)),
-    db
-      .select({ total: sql<string>`coalesce(sum(${invoices.total} - ${invoices.amountPaid}), 0)` })
-      .from(invoices)
-      .where(sql`${invoices.status} NOT IN ('paid', 'cancelled', 'draft')`),
+    // Same udhar rule as the customer pages (billed − paid per customer).
+    getTotalOutstanding().then((total) => [{ total: String(total) }]),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(parts)

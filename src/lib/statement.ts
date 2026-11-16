@@ -5,6 +5,7 @@ import { customers, invoices, payments } from "@/db/schema";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { formatCurrency } from "@/lib/format";
 import { formatPhoneForWhatsapp } from "@/lib/whatsapp/client";
+import { getCustomerBalance } from "@/lib/balances";
 
 // Shared by the WhatsApp summary message and the public /s/<token> page so the
 // two always agree on what the customer owes.
@@ -29,7 +30,12 @@ export async function getCustomerStatement(customerId: number) {
     .map((i) => ({ ...i, balance: Math.max(0, Number(i.total) - Number(i.amountPaid)) }))
     .filter((i) => i.balance > 0);
 
-  const outstanding = pendingInvoices.reduce((sum, i) => sum + i.balance, 0);
+  // Udhar = billed − paid for the whole account (same as the statement's
+  // closing balance). billsDue is the bill-by-bill figure; they differ only
+  // when a payment isn't linked to a bill (e.g. a general advance).
+  const balance = await getCustomerBalance(customerId);
+  const outstanding = balance.udhar;
+  const billsDue = Math.round(pendingInvoices.reduce((sum, i) => sum + i.balance, 0) * 100) / 100;
   const oldestBillDate = pendingInvoices.length
     ? (pendingInvoices[0].issuedAt ?? pendingInvoices[0].createdAt)
     : null;
@@ -37,6 +43,8 @@ export async function getCustomerStatement(customerId: number) {
   return {
     pendingInvoices,
     outstanding,
+    billsDue,
+    advance: balance.advance,
     oldestBillDate,
     lastPayment: customerPayments[0] ?? null,
     recentPayments: customerPayments.slice(0, 5),

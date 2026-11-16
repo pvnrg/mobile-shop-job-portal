@@ -1,14 +1,15 @@
 "use server";
 
 import { db } from "@/db";
-import { jobs, jobDevices, jobStatusHistory, invoices, payments } from "@/db/schema";
+import { jobs, jobDevices, jobStatusHistory, payments } from "@/db/schema";
 import { jobSchema, jobDeviceStatusUpdateSchema } from "@/lib/validation/job";
 import { generateJobNumber } from "@/lib/numbering";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq, and, ne, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { notifyJobReceived, notifyJobStatusChange } from "@/lib/whatsapp/triggers";
+import { findJobInvoice, syncInvoicePaid } from "@/lib/balances";
 
 export type FormState = {
   error?: string;
@@ -180,9 +181,7 @@ export async function updateJobDeviceStatusAction(
     });
 
     if (amountPaidNow > 0) {
-      const invoice = await tx.query.invoices.findFirst({
-        where: and(eq(invoices.jobId, jobId), ne(invoices.status, "cancelled")),
-      });
+      const invoice = await findJobInvoice(tx, jobId);
 
       await tx.insert(payments).values({
         invoiceId: invoice?.id ?? null,
@@ -194,14 +193,9 @@ export async function updateJobDeviceStatusAction(
         recordedBy: userId,
       });
 
-      if (invoice) {
-        const newPaid = Number(invoice.amountPaid) + amountPaidNow;
-        const newStatus = newPaid >= Number(invoice.total) ? "paid" : "partially_paid";
-        await tx
-          .update(invoices)
-          .set({ amountPaid: String(newPaid), status: newStatus, updatedAt: new Date() })
-          .where(eq(invoices.id, invoice.id));
-      }
+      // No invoice yet: the payment stays on the job and is linked to the
+      // invoice when it's created.
+      if (invoice) await syncInvoicePaid(tx, invoice.id);
     }
   });
 

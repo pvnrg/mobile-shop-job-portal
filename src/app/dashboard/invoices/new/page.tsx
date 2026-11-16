@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { jobs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getCustomerOption } from "@/lib/customer-option";
+import { unbilledJobPayments } from "@/lib/balances";
 
 export default async function NewInvoicePage({
   searchParams,
@@ -35,7 +36,10 @@ export default async function NewInvoicePage({
     }
   }
 
-  const defaultCustomer = await getCustomerOption(defaultCustomerId);
+  const [defaultCustomer, alreadyPaid] = await Promise.all([
+    getCustomerOption(defaultCustomerId),
+    jobId ? unbilledJobPayments(db, Number(jobId)) : Promise.resolve(0),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -55,6 +59,7 @@ export default async function NewInvoicePage({
             defaultCustomer={defaultCustomer}
             defaultJobId={jobId ? Number(jobId) : undefined}
             defaultItems={defaultItems}
+            alreadyPaid={alreadyPaid}
           />
         </CardContent>
       </Card>

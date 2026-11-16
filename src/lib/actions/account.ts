@@ -8,6 +8,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import type { PaymentMethod } from "@/lib/status";
 import { notifyAccountStatement, notifyOutstandingReminder } from "@/lib/whatsapp/triggers";
 import { getStatementUrl } from "@/lib/statement";
+import { linkJobPayments, syncInvoicePaid } from "@/lib/balances";
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -33,14 +34,7 @@ async function settleInvoice(
     recordedBy: userId,
   });
 
-  await tx
-    .update(invoices)
-    .set({
-      amountPaid: String(Number(invoice.amountPaid) + due),
-      status: "paid",
-      updatedAt: new Date(),
-    })
-    .where(eq(invoices.id, invoice.id));
+  await syncInvoicePaid(tx, invoice.id);
 }
 
 export async function clearInvoiceAction(invoiceId: number, method: PaymentMethod = "cash") {
@@ -65,14 +59,20 @@ export async function clearCustomerAccountAction(
   const userId = session?.user?.id ? Number(session.user.id) : null;
 
   const outstanding = await db
-    .select({ id: invoices.id })
+    .select({ id: invoices.id, jobId: invoices.jobId })
     .from(invoices)
     .where(
       and(eq(invoices.customerId, customerId), inArray(invoices.status, ["issued", "partially_paid"]))
-    );
+    )
+    .orderBy(invoices.issuedAt, invoices.id);
 
   await db.transaction(async (tx) => {
     for (const invoice of outstanding) {
+      // Count money already taken on the job before collecting the rest.
+      if (invoice.jobId) {
+        await linkJobPayments(tx, invoice.jobId, invoice.id);
+        await syncInvoicePaid(tx, invoice.id);
+      }
       await settleInvoice(tx, invoice.id, method, userId);
     }
   });

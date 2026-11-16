@@ -75,7 +75,7 @@ export function AccountStatement({
   periodHref,
 }: {
   ledger: Ledger;
-  /** Udhar as shown elsewhere (sum of unpaid bill balances), to flag any mismatch. */
+  /** Sum of unpaid bill balances, to explain when it differs from the closing balance. */
   outstandingOnBills: number;
   /** Builds the link for a period chip, e.g. (p) => `/s/abc?period=${p}`. */
   periodHref: (period: string) => string;
@@ -83,7 +83,7 @@ export function AccountStatement({
   const { entries, openingBalance, closingBalance, totalBilled, totalPaid, from } = ledger;
   const showOpening = from !== null;
   // Payments not linked to a bill lower the running balance but not the bill-wise udhar.
-  const mismatch = Math.abs(closingBalance - outstandingOnBills) >= 0.01;
+  const mismatch = from === null && Math.abs(Math.max(0, closingBalance) - outstandingOnBills) >= 0.01;
 
   const summary = [
     ...(showOpening ? [{ label: "Opening balance", node: <Balance value={openingBalance} /> }] : []),
@@ -213,8 +213,8 @@ export function AccountStatement({
 
       {mismatch && (
         <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-          Unpaid bills total {formatCurrency(outstandingOnBills)}. The closing balance differs because some
-          payments are not linked to a specific bill.
+          Unpaid bills add up to {formatCurrency(outstandingOnBills)}, but some payments are not linked to a
+          specific bill, so the balance owed is the closing balance above.
         </p>
       )}
     </div>

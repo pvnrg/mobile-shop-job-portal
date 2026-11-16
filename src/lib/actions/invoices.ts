@@ -10,6 +10,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { notifyInvoiceCreated } from "@/lib/whatsapp/triggers";
+import { linkJobPayments, syncInvoicePaid, unbilledJobPayments } from "@/lib/balances";
+import { formatCurrency } from "@/lib/format";
 
 export type FormState = {
   error?: string;
@@ -59,21 +61,27 @@ export async function createInvoiceAction(
       ? 0
       : Number(parsed.data.amountPaid);
 
-  if (amountPaidNow > totals.total) {
+  const jobId =
+    parsed.data.jobId === "" || parsed.data.jobId === undefined ? null : Number(parsed.data.jobId);
+  // Money already taken on this job (e.g. when the device was delivered) gets
+  // linked to this invoice, so it counts towards what's been paid.
+  const alreadyPaid = jobId ? await unbilledJobPayments(db, jobId) : 0;
+
+  if (amountPaidNow + alreadyPaid > totals.total + 0.001) {
     return {
-      fieldErrors: { amountPaid: ["Amount paid can't exceed the invoice total."] },
+      fieldErrors: {
+        amountPaid: [
+          alreadyPaid > 0
+            ? `${formatCurrency(alreadyPaid)} was already paid on this job, so at most ${formatCurrency(Math.max(0, totals.total - alreadyPaid))} more can be paid now.`
+            : "Amount paid can't exceed the invoice total.",
+        ],
+      },
     };
   }
   if (amountPaidNow > 0 && !parsed.data.paymentMethod) {
     return { fieldErrors: { paymentMethod: ["Select a payment method."] } };
   }
 
-  const invoiceStatus =
-    amountPaidNow >= totals.total && totals.total > 0
-      ? "paid"
-      : amountPaidNow > 0
-        ? "partially_paid"
-        : "issued";
 
   let invoiceId: number | null = null;
   for (let attempt = 0; attempt < 3 && !invoiceId; attempt++) {
@@ -95,8 +103,9 @@ export async function createInvoiceAction(
             sgstAmount: String(totals.sgst),
             igstAmount: String(totals.igst),
             total: String(totals.total),
-            amountPaid: String(amountPaidNow),
-            status: invoiceStatus,
+            // Both are recomputed from the linked payments below.
+            amountPaid: "0",
+            status: "issued",
             placeOfSupply: parsed.data.placeOfSupply || null,
             notes: parsed.data.notes || null,
             issuedAt: new Date(),
@@ -132,6 +141,9 @@ export async function createInvoiceAction(
           });
         }
 
+        if (jobId) await linkJobPayments(tx, jobId, invoice.id);
+        await syncInvoicePaid(tx, invoice.id);
+
         return invoice.id;
       });
     } catch (err: unknown) {
@@ -160,10 +172,18 @@ export async function createInvoiceAction(
 }
 
 export async function cancelInvoiceAction(invoiceId: number) {
-  await db
-    .update(invoices)
-    .set({ status: "cancelled", updatedAt: new Date() })
-    .where(eq(invoices.id, invoiceId));
+  await db.transaction(async (tx) => {
+    const invoice = await tx.query.invoices.findFirst({ where: eq(invoices.id, invoiceId) });
+    if (!invoice) return;
+    await tx
+      .update(invoices)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(invoices.id, invoiceId));
+    // Money already paid stays with the customer: for a job bill it moves to
+    // the job's next invoice; otherwise it's an advance on their account.
+    await tx.update(payments).set({ invoiceId: null }).where(eq(payments.invoiceId, invoiceId));
+    await syncInvoicePaid(tx, invoiceId);
+  });
   revalidatePath(`/dashboard/invoices/${invoiceId}`);
   revalidatePath("/dashboard/invoices");
 }
