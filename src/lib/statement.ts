@@ -173,11 +173,17 @@ export async function getCustomerLedger(customerId: number, period: StatementPer
 
   type Unbalanced = Omit<Extract<LedgerEntry, { kind: "bill" }>, "balance"> | Omit<Extract<LedgerEntry, { kind: "payment" }>, "balance">;
   const raw: Unbalanced[] = [];
+  // Where each entry sits in the running balance. A payment for a bill is
+  // never placed before that bill (money taken at delivery, minutes before
+  // the invoice was made, would otherwise show as a brief "advance").
+  const sortTime = new Map<string, number>();
+  const billTime = new Map<number, number>();
 
   for (const inv of customerInvoices) {
     if (inv.status === "cancelled") continue;
     const total = Number(inv.total);
     const paid = Number(inv.amountPaid);
+    billTime.set(inv.id, (inv.issuedAt ?? inv.createdAt).getTime());
     raw.push({
       kind: "bill",
       id: `inv-${inv.id}`,
@@ -192,6 +198,8 @@ export async function getCustomerLedger(customerId: number, period: StatementPer
     });
   }
   for (const p of customerPayments) {
+    const billAt = p.invoiceId ? billTime.get(p.invoiceId) : undefined;
+    sortTime.set(`pay-${p.id}`, Math.max(p.paidAt.getTime(), billAt ?? 0));
     raw.push({
       kind: "payment",
       id: `pay-${p.id}`,
@@ -206,7 +214,8 @@ export async function getCustomerLedger(customerId: number, period: StatementPer
 
   // Oldest first; on the same timestamp, the bill comes before its payment.
   const rank = (e: Unbalanced) => (e.kind === "bill" ? 0 : 1);
-  raw.sort((a, b) => a.date.getTime() - b.date.getTime() || rank(a) - rank(b));
+  const at = (e: Unbalanced) => sortTime.get(e.id) ?? e.date.getTime();
+  raw.sort((a, b) => at(a) - at(b) || rank(a) - rank(b));
 
   const from = periodStart(period);
   let balance = 0;
@@ -280,7 +289,23 @@ export async function getStatementShare(customerId: number) {
   const waLink = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : null;
 
   const safeName = customer.name.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "") || "Customer";
-  const pdf = { url: `${url}/pdf`, filename: `Statement_${safeName}.pdf` };
+  // WhatsApp keeps a copy of a document per URL, so re-sending the same link
+  // can deliver yesterday's PDF. A fresh URL (and a dated file name) on every
+  // send makes it fetch the statement as it is right now.
+  const now = new Date();
+  const stamp = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+    .format(now)
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-|-$/g, "");
+  const pdf = { url: `${url}/pdf?v=${now.getTime()}`, filename: `Statement_${safeName}_${stamp}.pdf` };
 
   return { customer, shopName, url, pdf, balanceText, message, waLink };
 }

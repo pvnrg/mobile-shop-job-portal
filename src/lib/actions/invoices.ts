@@ -83,6 +83,9 @@ export async function createInvoiceAction(
   }
 
 
+  // The bill and any payment taken with it share one timestamp, so the
+  // statement lists them in the right order.
+  const issuedAt = new Date();
   let invoiceId: number | null = null;
   for (let attempt = 0; attempt < 3 && !invoiceId; attempt++) {
     const invoiceNumber = await generateInvoiceNumber();
@@ -108,7 +111,7 @@ export async function createInvoiceAction(
             status: "issued",
             placeOfSupply: parsed.data.placeOfSupply || null,
             notes: parsed.data.notes || null,
-            issuedAt: new Date(),
+            issuedAt,
             dueAt: parsed.data.dueAt ? new Date(parsed.data.dueAt) : null,
             createdBy: userId,
           })
@@ -137,6 +140,7 @@ export async function createInvoiceAction(
             amount: String(amountPaidNow),
             method: parsed.data.paymentMethod!,
             notes: "Paid at invoice creation",
+            paidAt: issuedAt,
             recordedBy: userId,
           });
         }
